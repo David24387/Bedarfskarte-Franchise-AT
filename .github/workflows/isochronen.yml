@@ -27,11 +27,14 @@ jobs:
         with:
           python-version: "3.12"
       - name: Alle fehlenden 30-Minuten-Isochronen für AT ergänzen
+        id: build_iso
+        continue-on-error: true
         env:
           ORS_API_KEY: ${{ secrets.ORS_API_KEY }}
           ISOCHRONE_BATCH_SIZE: "200"
         run: python build_isochronen.py
-      - name: Fortschritt committen
+      - name: Fortschritt immer committen
+        if: always()
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -43,3 +46,8 @@ jobs:
             git pull --rebase origin main
             git push
           fi
+      - name: Lauf als fehlgeschlagen markieren, falls noch Standorte fehlen
+        if: steps.build_iso.outcome == 'failure'
+        run: |
+          echo "Mindestens eine Isochrone fehlt noch. Der erfolgreiche Zwischenstand wurde gespeichert; der nächste Lauf berechnet nur die fehlenden Standorte."
+          exit 1
