@@ -15,20 +15,21 @@ def get(d,*names):
 def key(c):return f"{c['lat']:.6f}|{c['lng']:.6f}"
 def request(c):
  body=json.dumps({'locations':[[c['lng'],c['lat']]],'range':[RANGE],'range_type':'time','location_type':'start'}).encode()
- req=urllib.request.Request('https://api.heigit.org/openrouteservice/v2/isochrones/driving-car',data=body,headers={'Authorization':API_KEY,'Content-Type':'application/json','Accept':'application/geo+json','User-Agent':'Euromaster-Bedarfskarte-AT/1.0'},method='POST')
+ req=urllib.request.Request('https://api.heigit.org/openrouteservice/v2/isochrones/driving-car',data=body,headers={'Authorization':API_KEY,'Content-Type':'application/json','Accept':'application/geo+json','User-Agent':'Euromaster-Bedarfskarte-AT/1.1'},method='POST')
  with urllib.request.urlopen(req,timeout=60) as r:return json.load(r)
 def main():
  rows=list(csv.reader(Path('daten.csv').open(encoding='utf-8-sig',newline='')))
- hi=next((i for i,r in enumerate(rows[:10]) if 'lat' in ' '.join(r).lower() and ('long' in ' '.join(r).lower() or 'lng' in ' '.join(r).lower())),0)
+ hi=next((i for i,r in enumerate(rows[:10]) if 'lat' in ' '.join(r).lower() and ('long' in ' '.join(r).lower() or 'lng' in ' '.join(r).lower() or 'längengrad' in ' '.join(r).lower())),0)
  h=[norm(x) for x in rows[hi]]; centers=[]
  for vals in rows[hi+1:]:
   d={h[i]:vals[i] if i<len(vals) else '' for i in range(len(h)) if h[i]}
-  lat=num(get(d,'Lat.','Lat','Latitude'));lng=num(get(d,'Long.','Long','Lng','Longitude'))
+  lat=num(get(d,'Lat.','Lat','Latitude','Lat./Breitengard','Lat./Breitengrad','Breitengrad'))
+  lng=num(get(d,'Long.','Long','Lng','Longitude','Long./Längengrad','Längengrad'))
   if lat is None or lng is None:continue
-  # Sicherheitsfilter Österreich
   if not (46.2 <= lat <= 49.1 and 9.4 <= lng <= 17.3):continue
-  centers.append({'lat':lat,'lng':lng,'name':norm(get(d,'Ort','KST','Netzkennung','Name')),'plz':norm(get(d,'PLZ')),'netz':norm(get(d,'Netzkennung'))})
+  centers.append({'lat':lat,'lng':lng,'name':norm(get(d,'Ort','KST','Netzkennung','Name')),'plz':norm(get(d,'PLZ')),'netz':norm(get(d,'Netzkennung','KST'))})
  if not centers:raise SystemExit('Keine gültigen AT-Standorte mit Koordinaten erkannt.')
+ print(f'{len(centers)} gültige AT-Standorte erkannt.')
  cache={}
  if OUT.exists():
   try:
@@ -40,7 +41,9 @@ def main():
  for i,c in enumerate(missing[:batch],1):
   if i>1:time.sleep(3.5)
   try:
-   data=request(c);f=(data.get('features') or [])[0];f['properties']={'name':c['name'],'plz':c['plz'],'netz':c['netz'],'minutes':30,'lat':c['lat'],'lng':c['lng']};cache[key(c)]=f;print('OK',c['name'])
+   data=request(c);fs=data.get('features') or []
+   if not fs:raise RuntimeError('Keine Isochrone zurückgegeben')
+   f=fs[0];f['properties']={'name':c['name'],'plz':c['plz'],'netz':c['netz'],'minutes':30,'lat':c['lat'],'lng':c['lng']};cache[key(c)]=f;print('OK',c['name'])
   except Exception as e:print('OFFEN',c['name'],e)
  features=[cache[key(c)] for c in centers if key(c) in cache]
  if not features:raise SystemExit('Noch keine Isochronen verfügbar.')
