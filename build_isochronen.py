@@ -13,19 +13,23 @@ def get(d,*names):
   if n.lower() in low:return low[n.lower()]
  return ''
 def key(c):return f"{c['lat']:.6f}|{c['lng']:.6f}"
-def request(c,max_attempts=5):
+def request(c,max_attempts=6):
  body=json.dumps({'locations':[[c['lng'],c['lat']]],'range':[RANGE],'range_type':'time','location_type':'start','smoothing':0.0,'attributes':['area','reachfactor']}).encode()
- req=urllib.request.Request('https://api.heigit.org/openrouteservice/v2/isochrones/driving-car',data=body,headers={'Authorization':API_KEY,'Content-Type':'application/json','Accept':'application/geo+json','User-Agent':'Euromaster-Bedarfskarte-AT/2.0'},method='POST')
  for attempt in range(1,max_attempts+1):
   try:
-   with urllib.request.urlopen(req,timeout=120) as r:return json.load(r)
-  except urllib.error.HTTPError as e:
-   retryable=e.code in {408,429,500,502,503,504}
-   if not retryable or attempt==max_attempts:raise
-   wait=min(45,5*(2**(attempt-1)));print(f"  ORS HTTP {e.code} für {c['name']} – Versuch {attempt}/{max_attempts}, neuer Versuch in {wait}s");time.sleep(wait)
-  except (urllib.error.URLError,TimeoutError) as e:
+   req=urllib.request.Request('https://api.heigit.org/openrouteservice/v2/isochrones/driving-car',data=body,headers={'Authorization':API_KEY,'Content-Type':'application/json','Accept':'application/geo+json','Accept-Encoding':'identity','Connection':'close','User-Agent':'Euromaster-Bedarfskarte-AT/2.1'},method='POST')
+   with urllib.request.urlopen(req,timeout=120) as r:
+    raw=r.read()
+   data=json.loads(raw.decode('utf-8'))
+   if not isinstance(data,dict) or not data.get('features'):raise ValueError('ORS-Antwort ohne Features')
+   return data
+  except Exception as e:
+   code=getattr(e,'code',None)
+   if isinstance(e,urllib.error.HTTPError) and code not in {408,429,500,502,503,504}:raise
    if attempt==max_attempts:raise
-   wait=min(45,5*(2**(attempt-1)));print(f"  ORS-Verbindungsfehler für {c['name']} – Versuch {attempt}/{max_attempts}, neuer Versuch in {wait}s: {e}");time.sleep(wait)
+   wait=min(60,5*(2**(attempt-1)))
+   print(f"  ORS-Antwort für {c['name']} fehlerhaft ({type(e).__name__}{' HTTP '+str(code) if code else ''}) – Versuch {attempt}/{max_attempts}, erneut in {wait}s")
+   time.sleep(wait)
 def point_in_ring(x,y,ring):
  inside=False;j=len(ring)-1
  for i in range(len(ring)):
@@ -70,14 +74,14 @@ def main():
  for i,c in enumerate(missing,1):
   if i>1:time.sleep(3.5)
   try:
-   fs=(request(c).get('features') or []);f=fs[0] if fs else None
+   fs=request(c).get('features') or [];f=fs[0] if fs else None
    if not f:raise RuntimeError('Keine Isochrone')
    orsprops=f.get('properties') or {}
    f['properties']={'name':c['name'],'plz':c['plz'],'netz':c['netz'],'network':c['network'],'minutes':30,'seconds':RANGE,'profile':'driving-car','smoothing':0,'lat':c['lat'],'lng':c['lng'],'area':orsprops.get('area'),'reachfactor':orsprops.get('reachfactor'),'engine_version':ENGINE_VERSION}
    if not valid_feature(f,c):raise RuntimeError('eigener Standort nicht in Isochrone')
    cache[key(c)]=f;save_cache(cache,centers);print(f"OK {i}/{len(missing)} {c['network']} {c['name']} (Zwischenstand gespeichert)")
   except Exception as e:
-   save_cache(cache,centers);print('FEHLER',c['name'],e)
+   save_cache(cache,centers);print('FEHLER',c['name'],repr(e))
  features=save_cache(cache,centers);failed=[c for c in centers if key(c) not in cache or not valid_feature(cache[key(c)],c)]
  print(f'VALIDIERUNG: {len(features)}/{len(centers)} Standorte mit validierter 30-Minuten-Isochrone.')
  if failed:print('FEHLEN:',', '.join(c['name'] for c in failed));raise SystemExit(1)
