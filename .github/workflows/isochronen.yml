@@ -1,0 +1,45 @@
+name: AT 30-Minuten-Fahrzeitgebiete aktualisieren
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "daten.csv"
+      - "build_isochronen.py"
+  schedule:
+    - cron: "37 */6 * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: isochronen-at-update
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: 30-Minuten-Isochronen für AT ergänzen
+        env:
+          ORS_API_KEY: ${{ secrets.ORS_API_KEY }}
+          ISOCHRONE_BATCH_SIZE: "25"
+        run: python build_isochronen.py
+      - name: Fortschritt committen
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add isochronen.json
+          if git diff --cached --quiet; then
+            echo "Keine Änderungen."
+          else
+            git commit -m "Update Austria 30-minute drive-time areas"
+            git pull --rebase origin main
+            git push
+          fi
