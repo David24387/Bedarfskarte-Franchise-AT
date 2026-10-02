@@ -1,0 +1,22 @@
+{
+  "regions": 2114,
+  "year": 2024,
+  "top20Cutoff": 68,
+  "states": {
+    "1": "Burgenland",
+    "2": "Niederösterreich",
+    "3": "Wien",
+    "4": "Kärnten",
+    "5": "Steiermark",
+    "6": "Oberösterreich",
+    "7": "Salzburg",
+    "8": "Tirol",
+    "9": "Vorarlberg"
+  },
+  "weights": {
+    "popDensity": 0.3,
+    "pkwDensity": 0.25,
+    "income": 0.25,
+    "workDensity": 0.2
+  }
+}
