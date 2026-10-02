@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import csv,json,os,time,urllib.request
+import csv,json,os,time,urllib.request,urllib.error
 from pathlib import Path
 API_KEY=os.environ.get('ORS_API_KEY','').strip(); OUT=Path('isochronen.json'); RANGE=1800; ENGINE_VERSION=2
 if not API_KEY: raise SystemExit('ORS_API_KEY fehlt.')
@@ -13,10 +13,19 @@ def get(d,*names):
   if n.lower() in low:return low[n.lower()]
  return ''
 def key(c):return f"{c['lat']:.6f}|{c['lng']:.6f}"
-def request(c):
+def request(c,max_attempts=5):
  body=json.dumps({'locations':[[c['lng'],c['lat']]],'range':[RANGE],'range_type':'time','location_type':'start','smoothing':0.0,'attributes':['area','reachfactor']}).encode()
  req=urllib.request.Request('https://api.heigit.org/openrouteservice/v2/isochrones/driving-car',data=body,headers={'Authorization':API_KEY,'Content-Type':'application/json','Accept':'application/geo+json','User-Agent':'Euromaster-Bedarfskarte-AT/2.0'},method='POST')
- with urllib.request.urlopen(req,timeout=90) as r:return json.load(r)
+ for attempt in range(1,max_attempts+1):
+  try:
+   with urllib.request.urlopen(req,timeout=120) as r:return json.load(r)
+  except urllib.error.HTTPError as e:
+   retryable=e.code in {408,429,500,502,503,504}
+   if not retryable or attempt==max_attempts:raise
+   wait=min(45,5*(2**(attempt-1)));print(f"  ORS HTTP {e.code} für {c['name']} – Versuch {attempt}/{max_attempts}, neuer Versuch in {wait}s");time.sleep(wait)
+  except (urllib.error.URLError,TimeoutError) as e:
+   if attempt==max_attempts:raise
+   wait=min(45,5*(2**(attempt-1)));print(f"  ORS-Verbindungsfehler für {c['name']} – Versuch {attempt}/{max_attempts}, neuer Versuch in {wait}s: {e}");time.sleep(wait)
 def point_in_ring(x,y,ring):
  inside=False;j=len(ring)-1
  for i in range(len(ring)):
@@ -31,6 +40,10 @@ def contains_geom(g,x,y):
 def valid_feature(f,c):
  try:return contains_geom(f.get('geometry'),c['lng'],c['lat'])
  except:return False
+def save_cache(cache,centers):
+ features=[cache[key(c)] for c in centers if key(c) in cache and valid_feature(cache[key(c)],c)]
+ OUT.write_text(json.dumps({'type':'FeatureCollection','properties':{'minutes':30,'seconds':RANGE,'profile':'driving-car','range_type':'time','smoothing':0,'engine_version':ENGINE_VERSION,'country':'AT','source':'openrouteservice / OpenStreetMap','centers_total':len(centers),'centers_complete':len(features),'networks':['Franchise','EFR','PLP']},'features':features},ensure_ascii=False,separators=(',',':')),encoding='utf-8')
+ return features
 def main():
  rows=list(csv.reader(Path('daten.csv').open(encoding='utf-8-sig',newline='')))
  hi=next((i for i,r in enumerate(rows[:10]) if 'lat' in ' '.join(r).lower() and ('long' in ' '.join(r).lower() or 'längengrad' in ' '.join(r).lower())),0);h=[norm(x) for x in rows[hi]];centers=[];skipped=[]
@@ -49,7 +62,7 @@ def main():
    if old_version==ENGINE_VERSION:
     for f in old.get('features',[]):
      p=f.get('properties') or {};cache[f"{float(p['lat']):.6f}|{float(p['lng']):.6f}"]=f
-   else:print(f'Isochronen-Engine geändert ({old_version} -> {ENGINE_VERSION}): alle 81 Flächen werden frisch berechnet.')
+   else:print(f'Isochronen-Engine geändert ({old_version} -> {ENGINE_VERSION}): alle {len(centers)} Flächen werden frisch berechnet.')
   except Exception as e:print('Cache nicht lesbar:',e)
  for c in centers:
   if key(c) in cache and not valid_feature(cache[key(c)],c):del cache[key(c)]
@@ -62,10 +75,10 @@ def main():
    orsprops=f.get('properties') or {}
    f['properties']={'name':c['name'],'plz':c['plz'],'netz':c['netz'],'network':c['network'],'minutes':30,'seconds':RANGE,'profile':'driving-car','smoothing':0,'lat':c['lat'],'lng':c['lng'],'area':orsprops.get('area'),'reachfactor':orsprops.get('reachfactor'),'engine_version':ENGINE_VERSION}
    if not valid_feature(f,c):raise RuntimeError('eigener Standort nicht in Isochrone')
-   cache[key(c)]=f;print(f"OK {i}/{len(missing)} {c['network']} {c['name']}")
-  except Exception as e:print('FEHLER',c['name'],e)
- features=[cache[key(c)] for c in centers if key(c) in cache and valid_feature(cache[key(c)],c)];failed=[c for c in centers if key(c) not in cache or not valid_feature(cache[key(c)],c)]
- OUT.write_text(json.dumps({'type':'FeatureCollection','properties':{'minutes':30,'seconds':RANGE,'profile':'driving-car','range_type':'time','smoothing':0,'engine_version':ENGINE_VERSION,'country':'AT','source':'openrouteservice / OpenStreetMap','centers_total':len(centers),'centers_complete':len(features),'networks':['Franchise','EFR','PLP']},'features':features},ensure_ascii=False,separators=(',',':')),encoding='utf-8')
- print(f'VALIDIERUNG: {len(features)}/{len(centers)} Standorte mit frisch validierter 30-Minuten-Isochrone.')
+   cache[key(c)]=f;save_cache(cache,centers);print(f"OK {i}/{len(missing)} {c['network']} {c['name']} (Zwischenstand gespeichert)")
+  except Exception as e:
+   save_cache(cache,centers);print('FEHLER',c['name'],e)
+ features=save_cache(cache,centers);failed=[c for c in centers if key(c) not in cache or not valid_feature(cache[key(c)],c)]
+ print(f'VALIDIERUNG: {len(features)}/{len(centers)} Standorte mit validierter 30-Minuten-Isochrone.')
  if failed:print('FEHLEN:',', '.join(c['name'] for c in failed));raise SystemExit(1)
 if __name__=='__main__':main()
