@@ -1,0 +1,29 @@
+name: AT Regionaldaten aktualisieren
+on:
+  workflow_dispatch:
+  push:
+    paths: ["build_regionaldaten.py"]
+  schedule:
+    - cron: "27 4 1 * *"
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Österreichische Marktpotenzialdaten bauen
+        run: python build_regionaldaten.py
+      - name: Regionaldaten committen
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add regionaldaten.json regionaldaten_audit.json
+          git diff --cached --quiet || git commit -m "Update Austria regional potential data"
+          git pull --rebase origin main
+          git push
