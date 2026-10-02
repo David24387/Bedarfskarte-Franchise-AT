@@ -26,10 +26,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: 30-Minuten-Isochronen für AT ergänzen
+      - name: Alle fehlenden 30-Minuten-Isochronen für AT ergänzen
         env:
           ORS_API_KEY: ${{ secrets.ORS_API_KEY }}
-          ISOCHRONE_BATCH_SIZE: "25"
+          ISOCHRONE_BATCH_SIZE: "200"
         run: python build_isochronen.py
       - name: Fortschritt committen
         run: |
