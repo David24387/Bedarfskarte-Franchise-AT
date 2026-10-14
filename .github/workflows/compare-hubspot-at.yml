@@ -1,0 +1,14 @@
+name: HubSpot AT - compare locations (read only)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compare HubSpot with current AT locations
+        env:
+          HUBSPOT_TOKEN: ${{ secrets.HUBSPOT_TOKEN }}
+        run: python3 scripts/compare_hubspot_at.py
