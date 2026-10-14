@@ -1,0 +1,14 @@
+name: HubSpot AT - audit field mapping (read only)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Audit HubSpot AT mapping without changing map
+        env:
+          HUBSPOT_TOKEN: ${{ secrets.HUBSPOT_TOKEN }}
+        run: python3 scripts/audit_hubspot_at.py
