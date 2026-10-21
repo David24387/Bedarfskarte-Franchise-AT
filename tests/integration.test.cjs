@@ -1,0 +1,28 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const D=require('../directory.js');
+const elements=new Map();
+function element(id){if(!elements.has(id))elements.set(id,{checked:true,value:'',options:[],selectedOptions:[],add(o){this.options.push(o)},addEventListener(){},textContent:'',innerHTML:''});return elements.get(id)}
+let layers=new Set(),popup='';
+const map={removeLayer(x){layers.delete(x)},hasLayer(x){return layers.has(x)}};
+const layer=()=>({addTo(){layers.add(this);return this},bindTooltip(){return this},on(){return this}});
+const context={PartnerDirectory:D,document:{getElementById:element},Option:function(text,value){this.text=text;this.value=value},L:{GridLayer:{extend(){return class {addTo(){return this}}}},circleMarker:layer,popup(){return {setLatLng(){return this},setContent(v){popup=v;return this},openOn(){return this}}}},turf:{point:x=>x,booleanPointInPolygon:()=>true},console,performance,setTimeout};
+vm.createContext(context);
+let source=fs.readFileSync(require('node:path').join(__dirname,'../index.html'),'utf8').split('<script>').at(-1).split('</script>')[0];
+source=source.replace(/init\(\);\s*$/,'');vm.runInContext(source,context);
+context.mockMap=map;
+vm.runInContext(`map=mockMap;at=[{}];partnerDetails=new Map([['DEMO-1',{id:'DEMO-1',state:'Demo-Land',services:['Demo-Service'],openingHours:'Demo-Zeit'}],['STALE',{id:'STALE',services:['Alt']}]]);iso=[{properties:{lat:48,lng:15,network:'FRANCHISE'}},{properties:{lat:49,lng:16,network:'EFR'}}];parse([['KST','Netzwerk','Status','Gesellschaft','Ort','Lat./Breitengard','Long./Längengrad'],['DEMO-1','FRANCHISE','geöffnet','Demo <script>','Demo-Ort','48','15'],['DEMO-2','EFR','geöffnet','Demo ohne Position','Demo-Ort','','']]);`,context);
+assert.equal(vm.runInContext('directoryRows.length',context),2);
+assert.equal(vm.runInContext('centers.length',context),1);
+assert.equal(vm.runInContext('iso.length',context),1);
+assert.match(element('directoryList').innerHTML,/Position fehlt/);
+assert.doesNotMatch(element('directoryList').innerHTML,/<script>/);
+assert.doesNotMatch(element('directoryList').innerHTML,/STALE/);
+vm.runInContext("analyze(48,15,'Demo <script>',centers[0])",context);
+assert.match(popup,/Demo-Service/);assert.match(popup,/Demo-Zeit/);assert.doesNotMatch(popup,/<script>/);
+element('serviceFilter').selectedOptions=[{value:'Nicht angeboten'}];
+vm.runInContext('directoryChange()',context);
+assert.equal(vm.runInContext('coverageSites.size',context),0);
+assert.match(element('directoryList').innerHTML,/Keine passenden/);
+vm.runInContext("parse([['KST','Netzwerk','Lat./Breitengard','Long./Längengrad']])",context);
+assert.equal(vm.runInContext('directoryRows.length+iso.length',context),0);
+console.log('Synthetic map integration passed: profiles, missing coordinates, stale removal, service coverage, escaping, empty replacement.');
