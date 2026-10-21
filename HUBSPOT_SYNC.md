@@ -6,7 +6,7 @@ Aufnahmekriterien (alle Bedingungen erforderlich):
 
 - Lifecycle-Phase entspricht exakt einer der Optionen Partner (FRP-Franchise), Partner (FRPL–Franchise Partner Light), Partner (EFR), Partner (PLP).
 - Public_Status entspricht exakt der Option Public.
-- Land ist Österreich (AT/AUT/Austria/Österreich).
+
 
 Interne Feld- und Optionswerte werden aus den HubSpot-Felddefinitionen ermittelt. Fehlende oder mehrdeutige Definitionen brechen den Export ab. Es gibt keinen zusätzlichen Filter auf Aktiv: Die Freigabe richtet sich nach den vorgegebenen Kriterien.
 
@@ -21,3 +21,9 @@ Die Karte verwirft alte Fahrzeitflächen, die keinem aktuell sichtbaren Standort
 Vor Aktivierung: Import auf dem Branch manuell ausführen und aggregierte Anzahl sowie Koordinatenlücken prüfen. Der Branch-Workflow muss dabei denselben Branch auschecken. Erst nach Prüfung zusammenführen. Der bisherige Datenbestand bleibt bis zum ersten erfolgreichen Lauf bestehen; die öffentliche Datei kann weiterhin historische Daten in der Git-Historie enthalten.
 
 Validierung: `python -m unittest discover -s scripts -p 'test_sync_hubspot_at.py'`.
+
+## Korrektur nach Detailprüfung am 21.10.2026
+
+Alle 27 bisher ungeklärten Altstandorte wurden in HubSpot gefunden. Der zusätzlich eingeführte Länderfilter war ungeeignet: Österreichische Partner haben teils leere oder falsche Länderwerte (US, DE, GB). Der Export folgt deshalb ausschließlich den vorgegebenen Lifecycle- und Public-Status-Kriterien. Er korrigiert keine CRM-Daten.
+
+Von den 27 gefundenen Standorten erfüllen 23 die Lifecycle-/Public-Kriterien. Reifen Jais Koblach, Reifen Jais Bischofshofen und Diewo Buchkirchen sind Not public; Czeczelits Wiener Neustadt ist ebenfalls Not public und hat eine andere Lifecycle-Phase. Mehrere Unternehmen an gleicher Adresse erklären die früheren mehrdeutigen Treffer. Abweichende Koordinaten bleiben separat zu prüfen.

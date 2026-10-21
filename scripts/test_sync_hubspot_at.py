@@ -24,10 +24,14 @@ class ExportTests(unittest.TestCase):
                             for i in range(4)], self.config)
         self.assertEqual([r[1] for r in rows], ['Franchise', 'Franchise', 'EFR', 'PLP'])
 
-    def test_excludes_nonpublic_missing_public_unknown_lifecycle_and_other_country(self):
+    def test_excludes_nonpublic_missing_public_unknown_lifecycle(self):
         records = [self.record(public='no'), self.record(public=None),
-                   self.record(lifecyclestage='customer'), self.record(country='DE')]
+                   self.record(lifecyclestage='customer')]
         self.assertEqual(export_rows(records, self.config), [])
+
+    def test_country_metadata_does_not_override_explicit_publication_rules(self):
+        for country in ('DE', 'United States', None, ''):
+            self.assertEqual(len(export_rows([self.record(country=country)], self.config)), 1)
 
     def test_update_and_revoke_snapshot(self):
         self.assertEqual(export_rows([self.record(name='New name')], self.config)[0][4], 'New name')

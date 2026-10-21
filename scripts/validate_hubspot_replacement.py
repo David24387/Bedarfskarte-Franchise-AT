@@ -38,19 +38,15 @@ def main():
         if str(after) in seen:
             raise ValueError('Repeated cursor')
         seen.add(str(after))
-    from deep_reconcile_hubspot import report
-    report(records, config)
-    at = [r for r in records if any(norm(r['properties'].get(k)) in
-          ('at', 'aut', 'austria', 'osterreich') for k in
-          ('country', 'hs_country_code', 'country_code', 'land'))]
+    at = records  # No country gate: HubSpot country metadata is unreliable.
     eligible = [r for r in at if r['properties'].get(lc) in networks
                 and r['properties'].get(public) == yes]
     incomplete = [r for r in eligible if not all(str(r['properties'].get(k) or '').strip()
                   for k in ('name', 'address', 'zip', 'city'))]
     print('READINESS_REPORT')
-    print('HubSpot AT companies:', len(at))
-    print('Allowed lifecycle AT:', sum(r['properties'].get(lc) in networks for r in at))
-    print('Public + allowed lifecycle AT:', len(eligible))
+    print('HubSpot companies scanned (all countries):', len(at))
+    print('Allowed lifecycle:', sum(r['properties'].get(lc) in networks for r in at))
+    print('Public + allowed lifecycle:', len(eligible))
     print('Eligible by network:', dict(collections.Counter(networks[r['properties'][lc]] for r in eligible)))
     print('Eligible incomplete address:', len(incomplete))
     print('Eligible missing coordinates:', sum(not coordinates(r['properties'])[0] for r in eligible))
@@ -85,6 +81,13 @@ def main():
             for key in rowkeys:
                 if key[0] == tier: matches.update(indexed[key])
             if matches: break
+        if len(matches) > 1:
+            # Same address may have an old operator and a current company.
+            named = [i for i in matches if norm(row.get('Gesellschaft')) == norm(
+                re.sub(r'^\s*\d{3}[A-Za-z]\s+', '', str(at[i]['properties'].get('name') or '')))]
+            identified = [i for i in matches if any(k[0]=='id' and k in keys(at[i]['properties']) for k in rowkeys)]
+            if len(identified)==1: matches=set(identified)
+            elif len(named)==1: matches=set(named)
         if len(matches) != 1:
             category = 'ambiguous' if matches else 'not_matched'
         else:

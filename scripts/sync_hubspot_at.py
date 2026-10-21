@@ -91,9 +91,6 @@ def export_rows(records, config):
         p = record.get('properties', {})
         if p.get(lifecycle) not in networks or p.get(public) != public_value:
             continue
-        if not any(norm(p.get(k)) in ('at', 'aut', 'austria', 'osterreich')
-                   for k in ('country', 'hs_country_code', 'country_code', 'land')):
-            continue
         if not all(str(p.get(k) or '').strip() for k in ('name', 'address', 'zip', 'city')):
             raise ValueError('Eligible partner has incomplete business address; export unchanged')
         lat, lng = coordinates(p)
@@ -115,8 +112,6 @@ def main():
               'country_code', 'land', 'partner_id', 'forms_partner_id_focus_id',
               'latitude', 'longitude', 'hs_latitude', 'hs_longitude',
               'hs_gps_latitude', 'hs_gps_longitude', config[0], config[1]]
-    if not any(k in names for k in ('country', 'hs_country_code', 'country_code', 'land')):
-        raise ValueError('No country property available')
     records, after, seen = [], None, set()
     while True:
         params = {'limit': 100, 'properties': ','.join(k for k in wanted if k in names)}
