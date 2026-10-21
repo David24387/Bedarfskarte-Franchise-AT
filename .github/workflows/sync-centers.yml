@@ -1,7 +1,12 @@
-name: Öffentliche AT-Partner aus HubSpot synchronisieren
+name: Interne AT-Bedarfskarte aus HubSpot synchronisieren
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - scripts/sync_hubspot_at.py
+      - .github/workflows/sync-centers.yml
   schedule:
     - cron: "17 * * * *"
 
@@ -22,20 +27,33 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Öffentliche Partner vollständig aus HubSpot laden
+      - name: Interne Partner unabhängig vom Public-Status aus HubSpot laden
         env:
           HUBSPOT_TOKEN: ${{ secrets.HUBSPOT_TOKEN }}
-        run: python scripts/sync_hubspot_at.py
+        run: python scripts/sync_hubspot_at.py --audience internal
+
+      - name: Fahrzeitflächen für neue Partner ergänzen
+        id: coverage
+        continue-on-error: true
+        env:
+          ORS_API_KEY: ${{ secrets.ORS_API_KEY }}
+        run: python build_isochronen.py
 
       - name: Änderungen committen
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add daten.csv
+          git add daten.csv isochronen.json
           if git diff --cached --quiet; then
             echo "Keine Änderungen im AT-Leistungsverzeichnis."
           else
-            git commit -m "Sync public Austria partners from HubSpot"
+            git commit -m "Sync internal Austria partners and coverage from HubSpot"
             git pull --rebase origin main
             git push
           fi
+
+      - name: Fehlende Fahrzeitflächen melden
+        if: steps.coverage.outcome == 'failure'
+        run: |
+          echo "Standortdaten synchronisiert; fehlende Fahrzeitflächen werden im nächsten Lauf erneut berechnet."
+          exit 1

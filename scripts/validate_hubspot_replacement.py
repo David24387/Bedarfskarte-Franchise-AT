@@ -38,6 +38,8 @@ def main():
         if str(after) in seen:
             raise ValueError('Repeated cursor')
         seen.add(str(after))
+    from deep_reconcile_hubspot import report
+    report(records, config)
     at = records  # No country gate: HubSpot country metadata is unreliable.
     eligible = [r for r in at if r['properties'].get(lc) in networks
                 and r['properties'].get(public) == yes]
@@ -117,6 +119,15 @@ def main():
     print('Legacy match categories by network:', {k: dict(v) for k,v in bynetwork.items()})
     print('Eligible HubSpot companies not uniquely linked to legacy rows:',
           sum(i not in used and r in eligible for i,r in enumerate(at)))
+    for audience in ('public', 'internal'):
+        try:
+            output = export_rows(records, config, audience)
+            print('EXPORT_AUDIENCE:', audience, '| rows:', len(output),
+                  '| networks:', dict(collections.Counter(r[1] for r in output)),
+                  '| missing_coordinates:', sum(not r[8] for r in output))
+        except ValueError as exc:
+            print('EXPORT_AUDIENCE:', audience, '| ERROR:', str(exc))
+            if audience == 'internal': raise
     if incomplete:
         print('EXPORT_READY: NO - incomplete addresses')
     else:

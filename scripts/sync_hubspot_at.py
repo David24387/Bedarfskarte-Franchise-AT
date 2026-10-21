@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Export only public AT partners. No CRM record values or credentials in logs."""
 import csv
+import argparse
 import io
 import json
 import os
@@ -84,17 +85,32 @@ def coordinates(p):
     return '', ''
 
 
-def export_rows(records, config):
+# Explicitly requested legacy partners whose lifecycle currently says inactive.
+# These are the only exceptions; new regular partners are discovered from HubSpot.
+INTERNAL_EXCEPTIONS = {
+    '8367412689': 'PLP',  # Czeczelits Neunkirchen
+    '8811685842': 'PLP',  # Czeczelits Wiener Neustadt
+}
+
+
+def export_rows(records, config, audience='public'):
+    if audience not in ('public', 'internal'):
+        raise ValueError('Unknown export audience')
     lifecycle, public, networks, public_value = config
     rows = []
     for record in records:
         p = record.get('properties', {})
-        if p.get(lifecycle) not in networks or p.get(public) != public_value:
+        network = networks.get(p.get(lifecycle))
+        if audience == 'internal':
+            network = INTERNAL_EXCEPTIONS.get(str(record['id']), network)
+        if not network or (audience == 'public' and p.get(public) != public_value):
+            continue
+        if record.get('archived'):
             continue
         if not all(str(p.get(k) or '').strip() for k in ('name', 'address', 'zip', 'city')):
             raise ValueError('Eligible partner has incomplete business address; export unchanged')
         lat, lng = coordinates(p)
-        rows.append([str(record['id']), networks[p[lifecycle]], 'geöffnet',
+        rows.append([str(record['id']), network, 'geöffnet',
                      p.get('partner_id') or p.get('forms_partner_id_focus_id') or '',
                      p['name'], p['address'], p['zip'], p['city'], lat, lng])
     if len({r[0] for r in rows}) != len(rows):
@@ -103,6 +119,9 @@ def export_rows(records, config):
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--audience', choices=('public', 'internal'), default='public')
+    args = parser.parse_args()
     if not os.environ.get('HUBSPOT_TOKEN'):
         raise SystemExit('HUBSPOT_TOKEN secret missing')
     properties = api('/crm/v3/properties/companies')['results']
@@ -125,7 +144,7 @@ def main():
         if str(after) in seen:
             raise ValueError('Repeated pagination cursor')
         seen.add(str(after))
-    rows = export_rows(records, config)
+    rows = export_rows(records, config, audience=args.audience)
     # Empty snapshots are valid: revoked publication must remove old partners too.
     buffer = io.StringIO(newline='')
     writer = csv.writer(buffer)
@@ -136,7 +155,7 @@ def main():
     temporary.write_text(buffer.getvalue(), encoding='utf-8')
     temporary.replace(target)
     missing = sum(not r[8] for r in rows)
-    print('Public AT partners:', len(rows), '| Missing HubSpot coordinates:', missing)
+    print('HubSpot partners (' + args.audience + '):', len(rows), '| Missing HubSpot coordinates:', missing)
     print('Only business directory fields exported. No individual records logged.')
 
 

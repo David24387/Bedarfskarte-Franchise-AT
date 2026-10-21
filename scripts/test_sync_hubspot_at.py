@@ -1,5 +1,5 @@
 import unittest
-from sync_hubspot_at import LIFECYCLES, mapping, export_rows
+from sync_hubspot_at import LIFECYCLES, mapping, export_rows, INTERNAL_EXCEPTIONS
 
 
 class ExportTests(unittest.TestCase):
@@ -32,6 +32,21 @@ class ExportTests(unittest.TestCase):
     def test_country_metadata_does_not_override_explicit_publication_rules(self):
         for country in ('DE', 'United States', None, ''):
             self.assertEqual(len(export_rows([self.record(country=country)], self.config)), 1)
+
+    def test_internal_includes_nonpublic_regular_partners_and_new_records(self):
+        records = [self.record('new-1', public='no'), self.record('new-2', public=None)]
+        self.assertEqual(len(export_rows(records, self.config, audience='internal')), 2)
+        self.assertEqual(export_rows(records, self.config, audience='public'), [])
+
+    def test_internal_explicit_czeczelits_exceptions_do_not_leak_to_public_export(self):
+        records = [self.record(i, public='no', lifecyclestage='inactive') for i in INTERNAL_EXCEPTIONS]
+        self.assertEqual([r[1] for r in export_rows(records, self.config, 'internal')], ['PLP', 'PLP'])
+        self.assertEqual(export_rows(records, self.config, 'public'), [])
+        self.assertEqual(export_rows([self.record('other-inactive', lifecyclestage='inactive')], self.config, 'internal'), [])
+
+    def test_archived_partner_is_never_exported(self):
+        row = self.record(); row['archived'] = True
+        self.assertEqual(export_rows([row], self.config, 'internal'), [])
 
     def test_update_and_revoke_snapshot(self):
         self.assertEqual(export_rows([self.record(name='New name')], self.config)[0][4], 'New name')
