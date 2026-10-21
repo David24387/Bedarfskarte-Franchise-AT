@@ -1,7 +1,12 @@
-name: Franchise-AT aus Google Sheet synchronisieren
+name: Public-Partner für AT-Bedarfskarte aus HubSpot synchronisieren
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - scripts/sync_hubspot_at.py
+      - .github/workflows/sync-centers.yml
   schedule:
     - cron: "17 * * * *"
 
@@ -18,33 +23,37 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Google Sheet als daten.csv laden
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Ausschließlich Public-Partner vollständig aus HubSpot laden
         env:
-          SHEET_ID: 178Jk-HSNF1pHHxuLRPGaaLOvc7snxp8KUrVrSXJ0yCo
-        run: |
-          set -euo pipefail
-          URL="https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv"
-          curl --fail --location --retry 4 --retry-delay 5 --connect-timeout 20 --max-time 120 "$URL" -o daten.csv.new
-          test -s daten.csv.new
-          python - <<'PY'
-          import csv
-          with open('daten.csv.new', encoding='utf-8-sig', newline='') as f:
-              rows=list(csv.reader(f))
-          if len(rows) < 2:
-              raise SystemExit('Export enthält keine Franchise-Daten')
-          print(f'Google-Sheet-Export geladen: {len(rows)-1} Datenzeilen')
-          PY
-          mv daten.csv.new daten.csv
+          HUBSPOT_TOKEN: ${{ secrets.HUBSPOT_TOKEN }}
+        run: python scripts/sync_hubspot_at.py --audience public
+
+      - name: Fahrzeitflächen für neue Partner ergänzen
+        id: coverage
+        continue-on-error: true
+        env:
+          ORS_API_KEY: ${{ secrets.ORS_API_KEY }}
+        run: python build_isochronen.py
 
       - name: Änderungen committen
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add daten.csv
+          git add daten.csv isochronen.json
           if git diff --cached --quiet; then
             echo "Keine Änderungen im AT-Leistungsverzeichnis."
           else
-            git commit -m "Sync Austria franchise centers from Google Sheet"
+            git commit -m "Sync public Austria partners and coverage from HubSpot"
             git pull --rebase origin main
             git push
           fi
+
+      - name: Fehlende Fahrzeitflächen melden
+        if: steps.coverage.outcome == 'failure'
+        run: |
+          echo "Standortdaten synchronisiert; fehlende Fahrzeitflächen werden im nächsten Lauf erneut berechnet."
+          exit 1
