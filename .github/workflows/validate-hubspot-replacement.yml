@@ -1,0 +1,27 @@
+name: HubSpot AT - validate Excel replacement (read only)
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - codex/hubspot-public-partners
+    paths:
+      - scripts/sync_hubspot_at.py
+      - scripts/validate_hubspot_replacement.py
+      - .github/workflows/validate-hubspot-replacement.yml
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Unit tests
+        run: python -m unittest discover -s scripts -p 'test_sync_hubspot_at.py'
+      - name: Read-only HubSpot readiness report
+        env:
+          HUBSPOT_TOKEN: ${{ secrets.HUBSPOT_TOKEN }}
+        run: python scripts/validate_hubspot_replacement.py
