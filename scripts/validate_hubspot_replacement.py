@@ -2,6 +2,8 @@
 import collections
 import csv
 import json
+import math
+import re
 from pathlib import Path
 from sync_hubspot_at import api, mapping, norm, coordinates, export_rows
 
@@ -58,21 +60,28 @@ def main():
     def keys(p, legacy=False):
         name, street, city, zip_code = (p.get(k) for k in
             (('Gesellschaft', 'Strasse', 'Ort', 'PLZ') if legacy else ('name', 'address', 'city', 'zip')))
+        name = re.sub(r'^\s*\d{3}[A-Za-z]\s+', '', str(name or ''))
+        street = re.sub(r'str\.(?=\s|$)', 'strasse', str(street or ''), flags=re.I)
         keys = set()
         if norm(street) and norm(city): keys.add(('address', norm(street), norm(city)))
         if norm(street) and norm(zip_code): keys.add(('streetzip', norm(street), norm(zip_code).removeprefix('a')))
         if norm(name) and norm(city): keys.add(('namecity', norm(name), norm(city)))
-        fields = ('Netzkennung',) if legacy else ('partner_id', 'forms_partner_id_focus_id')
+        fields = ('KST', 'Netzkennung') if legacy else ('partner_id', 'forms_partner_id_focus_id')
         for k in fields:
             if norm(p.get(k)): keys.add(('id', norm(p[k])))
         return keys
     indexed = collections.defaultdict(set)
     for i, record in enumerate(at):
         for key in keys(record['properties']): indexed[key].add(i)
+    distances = []
     result, bynetwork, used = collections.Counter(), collections.defaultdict(collections.Counter), set()
     for row in old:
         matches = set()
-        for key in keys(row, True): matches.update(indexed[key])
+        rowkeys = keys(row, True)
+        for tier in ('streetzip', 'address', 'id', 'namecity'):
+            for key in rowkeys:
+                if key[0] == tier: matches.update(indexed[key])
+            if matches: break
         if len(matches) != 1:
             category = 'ambiguous' if matches else 'not_matched'
         else:
@@ -80,11 +89,22 @@ def main():
             if p.get(lc) not in networks: category = 'excluded_lifecycle'
             elif p.get(public) != yes: category = 'excluded_public_status'
             elif not coordinates(p)[0]: category = 'eligible_missing_coordinates'
-            else: category = 'eligible_with_coordinates'
+            else:
+                category = 'eligible_with_coordinates'
+                try:
+                    a,b = coordinates(p)
+                    x,y = (float(str(row[k]).replace(',', '.')) for k in ('Lat./Breitengard','Long./Längengrad'))
+                    lat1,lat2 = math.radians(x),math.radians(float(a))
+                    dlat,dlon = lat2-lat1,math.radians(float(b)-y)
+                    km=6371*2*math.asin(min(1,math.sqrt(math.sin(dlat/2)**2+math.cos(lat1)*math.cos(lat2)*math.sin(dlon/2)**2)))
+                    distances.append(km)
+                except (ValueError, KeyError): pass
         result[category] += 1
         bynetwork[row.get('Netzwerk', '')][category] += 1
     print('Legacy CSV rows:', len(old))
     print('Legacy match categories:', dict(result))
+    print('Matched public locations with position deviation >1km:', sum(d>1 for d in distances))
+    print('Matched public locations with position deviation >5km:', sum(d>5 for d in distances))
     print('Legacy match categories by network:', {k: dict(v) for k,v in bynetwork.items()})
     print('Eligible HubSpot companies not uniquely linked to legacy rows:',
           sum(i not in used and r in eligible for i,r in enumerate(at)))
@@ -94,7 +114,7 @@ def main():
         rows = export_rows(records, config)
         print('Actual export validation rows:', len(rows))
         print('EXPORT_READY: YES')
-    print('MAP_READY:', 'YES' if eligible and not incomplete and all(coordinates(r['properties'])[0]
+    print('MAP_COORDINATES_PRESENT:', 'YES' if eligible and not incomplete and all(coordinates(r['properties'])[0]
           for r in eligible) else 'NO')
     print('Read only. No files changed; no names, addresses, IDs or tokens logged.')
 
