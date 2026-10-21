@@ -24,7 +24,7 @@ def main():
     wanted = ['name', 'address', 'zip', 'city', 'country', 'hs_country_code', 'country_code',
               'land', 'partner_id', 'forms_partner_id_focus_id', 'unternehmensname_mit_id',
               'latitude', 'longitude', 'hs_latitude', 'hs_longitude',
-              'hs_gps_latitude', 'hs_gps_longitude', lc, public]
+              'hs_gps_latitude', 'hs_gps_longitude', 'kundenstatus', lc, public]
     records, after, seen = [], None, set()
     while True:
         params = {'limit': 100, 'properties': ','.join(k for k in wanted if k in available)}
@@ -38,14 +38,18 @@ def main():
         if str(after) in seen:
             raise ValueError('Repeated cursor')
         seen.add(str(after))
-    from deep_reconcile_hubspot import report
-    report(records, config)
     at = records  # No country gate: HubSpot country metadata is unreliable.
     eligible = [r for r in at if r['properties'].get(lc) in networks
                 and r['properties'].get(public) == yes]
     incomplete = [r for r in eligible if not all(str(r['properties'].get(k) or '').strip()
                   for k in ('name', 'address', 'zip', 'city'))]
     print('READINESS_REPORT')
+    status_prop = next((p for p in props if p['name']=='kundenstatus'), None)
+    print('Status field metadata:', json.dumps(status_prop, ensure_ascii=False))
+    print('Allowed-lifecycle status counts:', dict(collections.Counter(r['properties'].get('kundenstatus') or '<empty>' for r in records if r['properties'].get(lc) in networks)))
+    from sync_hubspot_at import INTERNAL_EXCEPTIONS
+    print('Czeczelits exception status counts:', dict(collections.Counter(r['properties'].get('kundenstatus') or '<empty>' for r in records if str(r['id']) in INTERNAL_EXCEPTIONS)))
+
     print('HubSpot companies scanned (all countries):', len(at))
     print('Allowed lifecycle:', sum(r['properties'].get(lc) in networks for r in at))
     print('Public + allowed lifecycle:', len(eligible))
