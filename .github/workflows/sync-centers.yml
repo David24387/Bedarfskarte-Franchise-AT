@@ -15,7 +15,7 @@ permissions:
 
 concurrency:
   group: center-sync-at
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   sync:
@@ -32,12 +32,24 @@ jobs:
           HUBSPOT_TOKEN: ${{ secrets.HUBSPOT_TOKEN }}
         run: python scripts/sync_hubspot_at.py --audience public
 
+      - name: Public-Standortliste sofort veröffentlichen
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add daten.csv
+          if ! git diff --cached --quiet; then
+            git commit -m "Sync public Austria partners from HubSpot"
+            git pull --rebase origin main
+            git push
+          fi
+
       - name: Fahrzeitflächen für neue Partner ergänzen
         id: coverage
+        timeout-minutes: 3
         continue-on-error: true
         env:
           ORS_API_KEY: ${{ secrets.ORS_API_KEY }}
-        run: python build_isochronen.py
+        run: python -u build_isochronen.py
 
       - name: Änderungen committen
         run: |

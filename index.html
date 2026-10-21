@@ -2,9 +2,9 @@
 const urls=[
  'https://raw.githubusercontent.com/ginseng666/GeoJSON-TopoJSON-Austria/master/2021/simplified-99.9/bezirke_999_geo.json',
  'https://raw.githubusercontent.com/ginseng666/GeoJSON-TopoJSON-Austria/master/2021/simplified-99.9/laender_999_geo.json',
- './isochronen.json','./regionaldaten.json','./daten.csv'
+ 'https://raw.githubusercontent.com/David24387/Bedarfskarte-Franchise-AT/main/isochronen.json','./regionaldaten.json','https://raw.githubusercontent.com/David24387/Bedarfskarte-Franchise-AT/main/daten.csv'
 ];
-const data=await Promise.allSettled(urls.map(async(url,i)=>{const r=await fetch(url);if(!r.ok)throw Error(url+': '+r.status);return i===4?r.text():r.json()}));
+const data=await Promise.allSettled(urls.map(async(url,i)=>{const r=await fetch(url,{cache:'no-store'});if(!r.ok)throw Error(url+': '+r.status);return i===4?r.text():r.json()}));
 try{
  if(data[0].status!=='fulfilled'||data[1].status!=='fulfilled')throw Error('Grenzen fehlen');
  at=data[0].value.features||[];at.forEach(f=>f._bbox=turf.bbox(f));
