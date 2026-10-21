@@ -38,6 +38,8 @@ def main():
         if str(after) in seen:
             raise ValueError('Repeated cursor')
         seen.add(str(after))
+    from deep_reconcile_hubspot import report
+    report(records, config)
     at = [r for r in records if any(norm(r['properties'].get(k)) in
           ('at', 'aut', 'austria', 'osterreich') for k in
           ('country', 'hs_country_code', 'country_code', 'land'))]
