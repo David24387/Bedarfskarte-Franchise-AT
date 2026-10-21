@@ -1,0 +1,23 @@
+name: AT partner directory - audit HubSpot fields
+on:
+  workflow_dispatch:
+  push:
+    branches: [codex/at-partner-directory]
+    paths:
+      - scripts/audit_directory_fields.py
+      - .github/workflows/audit-directory-fields.yml
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Inspect metadata and Public-only field completeness
+        env:
+          HUBSPOT_TOKEN: ${{ secrets.HUBSPOT_TOKEN }}
+        run: python scripts/audit_directory_fields.py
