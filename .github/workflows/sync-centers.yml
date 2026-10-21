@@ -1,4 +1,4 @@
-name: Interne AT-Bedarfskarte aus HubSpot synchronisieren
+name: Public-Partner für AT-Bedarfskarte aus HubSpot synchronisieren
 
 on:
   workflow_dispatch:
@@ -27,10 +27,10 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Interne Partner unabhängig vom Public-Status aus HubSpot laden
+      - name: Ausschließlich Public-Partner vollständig aus HubSpot laden
         env:
           HUBSPOT_TOKEN: ${{ secrets.HUBSPOT_TOKEN }}
-        run: python scripts/sync_hubspot_at.py --audience internal
+        run: python scripts/sync_hubspot_at.py --audience public
 
       - name: Fahrzeitflächen für neue Partner ergänzen
         id: coverage
@@ -47,7 +47,7 @@ jobs:
           if git diff --cached --quiet; then
             echo "Keine Änderungen im AT-Leistungsverzeichnis."
           else
-            git commit -m "Sync internal Austria partners and coverage from HubSpot"
+            git commit -m "Sync public Austria partners and coverage from HubSpot"
             git pull --rebase origin main
             git push
           fi

@@ -1,22 +1,16 @@
-# HubSpot-Synchronisierung für die interne AT-Bedarfskarte
+# HubSpot → AT-Bedarfskarte: ausschließlich Public-Partner
 
-Die interne Karte verwendet `sync_hubspot_at.py --audience internal`:
+Maßgeblich ist ausschließlich der aktuelle HubSpot-Bestand mit diesen kombinierten Filtern:
 
-- Lifecycle ist FRP, FRPL, EFR oder PLP.
-- Status (`kundenstatus`) ist Aktiv. Feld und Aktiv-Optionswert werden aus den HubSpot-Metadaten aufgelöst.
-- Public_Status ist für diese interne Auswahl unerheblich.
-- Archivierte/gelöschte Unternehmen werden nicht übernommen. Ein vollständiger erfolgreicher Snapshot ersetzt die vorherige Liste: neue Partner kommen hinzu, ausgeschiedene Partner verschwinden. Es gibt keine festen Aufnahmeausnahmen.
+- Lifecycle-Phase: Partner (FRP-Franchise), Partner (FRPL–Franchise Partner Light), Partner (EFR) oder Partner (PLP).
+- Public_Status: Public.
 
-Die Auswahl `--audience public` behält die ursprünglichen Lifecycle-/Public-Kriterien für eine spätere öffentliche Partnerliste. Der derzeitige Workflow verwendet ausschließlich `internal`.
+Andere oder leere Public-Statuswerte werden nie übernommen. Es gibt keine internen Ausnahmen und keinen Modus zum Umgehen der Public-Freigabe. Die vorherige Excel-/CSV-Liste ist weder Referenz noch Aufnahmebedingung. Kein zusätzlicher Länderfilter, da das HubSpot-Länderfeld teilweise falsch gepflegt ist. Kein zusätzlicher Aktiv-Filter; der Lifecycle-/Public-Filter entspricht der abschließend bestätigten Auswahl.
 
-GitHub Actions liest stündlich HubSpot. Neue/aktualisierte Unternehmen werden anhand der stabilen HubSpot-Unternehmens-ID exportiert, ohne CSV-Referenzliste. Der bisherige Google-Sheet-Import wird ersetzt. Ein fehlerhafter API-/Mapping-/Adresslauf ersetzt keine Bestandsdaten. Ohne HubSpot-Koordinaten ist kein Kartenpunkt möglich; fehlende Koordinaten werden gezählt.
+Der Workflow liest stündlich HubSpot mit HUBSPOT_TOKEN und ersetzt daten.csv durch einen vollständigen Snapshot. Neue freigegebene Partner kommen automatisch hinzu; Änderungen werden übernommen. Bei Entzug von Public, Verlassen der erlaubten Lifecycle-Phasen, Archivierung oder Löschung entfallen Partner im nächsten erfolgreichen Lauf. Auch eine leere Freigabeliste ersetzt den vorherigen Bestand. API-, Mapping- oder Adressfehler ersetzen keine bestehende Datei. HubSpot-Feld-/Optionswerte werden aus den Metadaten aufgelöst.
 
-Der Sync-Workflow ergänzt anschließend die 30-Minuten-Fahrzeitflächen. Die Karte verwirft veraltete Flächen für entfernte oder verschobene Standorte. Falls der Routingdienst ausfällt, werden Standortänderungen gespeichert und fehlende Flächen im nächsten Lauf erneut versucht. Die regionale Analyse kann bis zur erfolgreichen Nachberechnung für neue Standorte unvollständig sein.
+Nur benötigte Unternehmensstandortfelder werden exportiert. Die stabile HubSpot-Unternehmens-ID ersetzt KST, Partnerkennungen bleiben unter Netzkennung suchbar. FRPL erscheint im Kartenfilter Franchise. Fehlende HubSpot-Koordinaten werden gemeldet und ermöglichen noch keinen Kartenpunkt.
 
-Erforderliche Actions-Secrets: HUBSPOT_TOKEN (Unternehmen/Felddefinitionen lesen), ORS_API_KEY (Fahrzeitflächen).
+Der gleiche Workflow aktualisiert die 30-Minuten-Fahrzeitflächen mit ORS_API_KEY. Die Karte verwirft Flächen für entfernte oder verschobene Standorte. Bei Routingfehlern werden Standortänderungen gespeichert; fehlende Flächen werden erneut versucht. Die Analyse für neu hinzugefügte Standorte bleibt bis zur erfolgreichen Flächenberechnung unvollständig.
 
-## Offener fachlicher Widerspruch
-
-Gewünscht ist die Aufnahme der bisherigen acht Public-Filter-Ausschlüsse sowie das automatische Entfernen ausgeschiedener Partner. Czeczelits Neunkirchen und Czeczelits Wiener Neustadt haben in HubSpot jedoch bereits Status Inaktiv/Ausgeschieden und eine ausgeschlossene Lifecycle-Phase. Sie werden nach der Austrittsregel nicht exportiert. Falls sie weiterhin Partner sind, müssen Status und Lifecycle in HubSpot fachlich korrigiert werden. Eine dauerhafte Code-Ausnahme würde spätere Austritte umgehen und ist daher entfernt.
-
-Die Umstellung ist bis zur Klärung dieser beiden Standorte nicht produktiv zusammengeführt. Tests: `python -m unittest discover -s scripts -p 'test_sync_hubspot_at.py'`.
+Der Read-only-Prüfworkflow führt den echten Export in einem leeren temporären Ordner aus. Er bestätigt damit, dass keine Excel-Referenz benötigt wird, und meldet ausschließlich Mengen und Koordinatenlücken. Tests: `python -m unittest discover -s scripts -p 'test_sync_hubspot_at.py'`.

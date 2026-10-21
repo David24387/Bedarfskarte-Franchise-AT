@@ -33,29 +33,24 @@ class ExportTests(unittest.TestCase):
         for country in ('DE', 'United States', None, ''):
             self.assertEqual(len(export_rows([self.record(country=country)], self.config)), 1)
 
-    def test_internal_includes_nonpublic_regular_partners_and_new_records(self):
-        records = [self.record('new-1', public='no'), self.record('new-2', public=None)]
-        self.assertEqual(len(export_rows(records, self.config, audience='internal')), 2)
-        self.assertEqual(export_rows(records, self.config, audience='public'), [])
+    def test_new_public_partner_is_added_without_legacy_csv(self):
+        rows = export_rows([self.record('new-company')], self.config)
+        self.assertEqual(rows[0][0], 'new-company')
 
-    def test_internal_removes_departed_partners_and_lifecycle_exits(self):
-        active = self.record('partner-1', public='no')
-        self.assertEqual(len(export_rows([active], self.config, 'internal')), 1)
-        active['properties']['kundenstatus'] = 'Inaktiv/Ausgeschieden'
-        self.assertEqual(export_rows([active], self.config, 'internal'), [])
-        active['properties']['kundenstatus'] = 'Aktiv'
-        active['properties']['lifecyclestage'] = 'inactive'
-        self.assertEqual(export_rows([active], self.config, 'internal'), [])
-        self.assertEqual(export_rows([], self.config, 'internal'), [])
+    def test_no_audience_can_bypass_public_filter(self):
+        for public in ('no', None, '', 'unknown'):
+            self.assertEqual(export_rows([self.record(public=public)], self.config), [])
+        with self.assertRaises(ValueError):
+            export_rows([self.record(public='no')], self.config, 'internal')
 
-    def test_internal_does_not_override_inactive_czeczelits(self):
-        for i in ('8367412689', '8811685842'):
-            self.assertEqual(export_rows([self.record(i, kundenstatus='Inaktiv/Ausgeschieden',
-                lifecyclestage='inactive', public='no')], self.config, 'internal'), [])
+    def test_departed_deleted_and_revoked_partners_leave_snapshot(self):
+        self.assertEqual(export_rows([self.record(lifecyclestage='inactive')], self.config), [])
+        self.assertEqual(export_rows([self.record(public='no')], self.config), [])
+        self.assertEqual(export_rows([], self.config), [])
 
     def test_archived_partner_is_never_exported(self):
         row = self.record(); row['archived'] = True
-        self.assertEqual(export_rows([row], self.config, 'internal'), [])
+        self.assertEqual(export_rows([row], self.config), [])
 
     def test_update_and_revoke_snapshot(self):
         self.assertEqual(export_rows([self.record(name='New name')], self.config)[0][4], 'New name')

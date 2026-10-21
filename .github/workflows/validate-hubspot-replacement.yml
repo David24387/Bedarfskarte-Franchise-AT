@@ -1,4 +1,4 @@
-name: HubSpot AT - validate Excel replacement (read only)
+name: HubSpot AT - validate Public-only sync (read only)
 on:
   workflow_dispatch:
   push:
