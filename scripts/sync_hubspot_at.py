@@ -85,15 +85,7 @@ def coordinates(p):
     return '', ''
 
 
-# Explicitly requested legacy partners whose lifecycle currently says inactive.
-# These are the only exceptions; new regular partners are discovered from HubSpot.
-INTERNAL_EXCEPTIONS = {
-    '8367412689': 'PLP',  # Czeczelits Neunkirchen
-    '8811685842': 'PLP',  # Czeczelits Wiener Neustadt
-}
-
-
-def export_rows(records, config, audience='public'):
+def export_rows(records, config, audience='public', active_status=('kundenstatus', 'Aktiv')):
     if audience not in ('public', 'internal'):
         raise ValueError('Unknown export audience')
     lifecycle, public, networks, public_value = config
@@ -101,8 +93,8 @@ def export_rows(records, config, audience='public'):
     for record in records:
         p = record.get('properties', {})
         network = networks.get(p.get(lifecycle))
-        if audience == 'internal':
-            network = INTERNAL_EXCEPTIONS.get(str(record['id']), network)
+        if audience == 'internal' and p.get(active_status[0]) != active_status[1]:
+            continue
         if not network or (audience == 'public' and p.get(public) != public_value):
             continue
         if record.get('archived'):
@@ -126,11 +118,15 @@ def main():
         raise SystemExit('HUBSPOT_TOKEN secret missing')
     properties = api('/crm/v3/properties/companies')['results']
     config = mapping(properties)
+    active_status = ('kundenstatus', 'Aktiv')
+    if args.audience == 'internal':
+        status_prop = resolve_property(properties, 'kundenstatus')
+        active_status = (status_prop['name'], resolve_option(status_prop, 'Aktiv'))
     names = {p['name'] for p in properties}
     wanted = ['name', 'address', 'zip', 'city', 'country', 'hs_country_code',
               'country_code', 'land', 'partner_id', 'forms_partner_id_focus_id',
               'latitude', 'longitude', 'hs_latitude', 'hs_longitude',
-              'hs_gps_latitude', 'hs_gps_longitude', config[0], config[1]]
+              'hs_gps_latitude', 'hs_gps_longitude', active_status[0], config[0], config[1]]
     records, after, seen = [], None, set()
     while True:
         params = {'limit': 100, 'properties': ','.join(k for k in wanted if k in names)}
@@ -144,7 +140,7 @@ def main():
         if str(after) in seen:
             raise ValueError('Repeated pagination cursor')
         seen.add(str(after))
-    rows = export_rows(records, config, audience=args.audience)
+    rows = export_rows(records, config, audience=args.audience, active_status=active_status)
     # Empty snapshots are valid: revoked publication must remove old partners too.
     buffer = io.StringIO(newline='')
     writer = csv.writer(buffer)

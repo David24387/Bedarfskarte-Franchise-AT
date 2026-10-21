@@ -1,5 +1,5 @@
 import unittest
-from sync_hubspot_at import LIFECYCLES, mapping, export_rows, INTERNAL_EXCEPTIONS
+from sync_hubspot_at import LIFECYCLES, mapping, export_rows
 
 
 class ExportTests(unittest.TestCase):
@@ -13,7 +13,7 @@ class ExportTests(unittest.TestCase):
         self.config = mapping(self.props)
 
     def record(self, i='1', **changes):
-        props = dict(lifecyclestage='0', public='yes', country='Österreich',
+        props = dict(kundenstatus='Aktiv', lifecyclestage='0', public='yes', country='Österreich',
                      name='Test GmbH', address='Teststraße 1', zip='1010', city='Wien',
                      latitude='48,2', longitude='16,3')
         props.update(changes)
@@ -38,11 +38,20 @@ class ExportTests(unittest.TestCase):
         self.assertEqual(len(export_rows(records, self.config, audience='internal')), 2)
         self.assertEqual(export_rows(records, self.config, audience='public'), [])
 
-    def test_internal_explicit_czeczelits_exceptions_do_not_leak_to_public_export(self):
-        records = [self.record(i, public='no', lifecyclestage='inactive') for i in INTERNAL_EXCEPTIONS]
-        self.assertEqual([r[1] for r in export_rows(records, self.config, 'internal')], ['PLP', 'PLP'])
-        self.assertEqual(export_rows(records, self.config, 'public'), [])
-        self.assertEqual(export_rows([self.record('other-inactive', lifecyclestage='inactive')], self.config, 'internal'), [])
+    def test_internal_removes_departed_partners_and_lifecycle_exits(self):
+        active = self.record('partner-1', public='no')
+        self.assertEqual(len(export_rows([active], self.config, 'internal')), 1)
+        active['properties']['kundenstatus'] = 'Inaktiv/Ausgeschieden'
+        self.assertEqual(export_rows([active], self.config, 'internal'), [])
+        active['properties']['kundenstatus'] = 'Aktiv'
+        active['properties']['lifecyclestage'] = 'inactive'
+        self.assertEqual(export_rows([active], self.config, 'internal'), [])
+        self.assertEqual(export_rows([], self.config, 'internal'), [])
+
+    def test_internal_does_not_override_inactive_czeczelits(self):
+        for i in ('8367412689', '8811685842'):
+            self.assertEqual(export_rows([self.record(i, kundenstatus='Inaktiv/Ausgeschieden',
+                lifecyclestage='inactive', public='no')], self.config, 'internal'), [])
 
     def test_archived_partner_is_never_exported(self):
         row = self.record(); row['archived'] = True

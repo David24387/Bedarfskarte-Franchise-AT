@@ -47,8 +47,8 @@ def main():
     status_prop = next((p for p in props if p['name']=='kundenstatus'), None)
     print('Status field metadata:', json.dumps(status_prop, ensure_ascii=False))
     print('Allowed-lifecycle status counts:', dict(collections.Counter(r['properties'].get('kundenstatus') or '<empty>' for r in records if r['properties'].get(lc) in networks)))
-    from sync_hubspot_at import INTERNAL_EXCEPTIONS
-    print('Czeczelits exception status counts:', dict(collections.Counter(r['properties'].get('kundenstatus') or '<empty>' for r in records if str(r['id']) in INTERNAL_EXCEPTIONS)))
+    INTERNAL_EXCEPTIONS = {'8367412689', '8811685842'}
+    print('Requested Czeczelits status counts:', dict(collections.Counter(r['properties'].get('kundenstatus') or '<empty>' for r in records if str(r['id']) in INTERNAL_EXCEPTIONS)))
 
     print('HubSpot companies scanned (all countries):', len(at))
     print('Allowed lifecycle:', sum(r['properties'].get(lc) in networks for r in at))

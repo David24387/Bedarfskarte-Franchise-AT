@@ -1,29 +1,22 @@
-# HubSpot → öffentliche AT-Partnerdaten
+# HubSpot-Synchronisierung für die interne AT-Bedarfskarte
 
-`sync-centers.yml` ersetzt den stündlichen Google-Sheet-Import durch einen vollständigen HubSpot-Snapshot. GitHub Actions benötigt das Secret `HUBSPOT_TOKEN` mit Lesezugriff auf Unternehmen und deren Felddefinitionen. Der Token bleibt ausschließlich in Actions.
+Die interne Karte verwendet `sync_hubspot_at.py --audience internal`:
 
-Aufnahmekriterien (alle Bedingungen erforderlich):
+- Lifecycle ist FRP, FRPL, EFR oder PLP.
+- Status (`kundenstatus`) ist Aktiv. Feld und Aktiv-Optionswert werden aus den HubSpot-Metadaten aufgelöst.
+- Public_Status ist für diese interne Auswahl unerheblich.
+- Archivierte/gelöschte Unternehmen werden nicht übernommen. Ein vollständiger erfolgreicher Snapshot ersetzt die vorherige Liste: neue Partner kommen hinzu, ausgeschiedene Partner verschwinden. Es gibt keine festen Aufnahmeausnahmen.
 
-- Lifecycle-Phase entspricht exakt einer der Optionen Partner (FRP-Franchise), Partner (FRPL–Franchise Partner Light), Partner (EFR), Partner (PLP).
-- Public_Status entspricht exakt der Option Public.
+Die Auswahl `--audience public` behält die ursprünglichen Lifecycle-/Public-Kriterien für eine spätere öffentliche Partnerliste. Der derzeitige Workflow verwendet ausschließlich `internal`.
 
+GitHub Actions liest stündlich HubSpot. Neue/aktualisierte Unternehmen werden anhand der stabilen HubSpot-Unternehmens-ID exportiert, ohne CSV-Referenzliste. Der bisherige Google-Sheet-Import wird ersetzt. Ein fehlerhafter API-/Mapping-/Adresslauf ersetzt keine Bestandsdaten. Ohne HubSpot-Koordinaten ist kein Kartenpunkt möglich; fehlende Koordinaten werden gezählt.
 
-Interne Feld- und Optionswerte werden aus den HubSpot-Felddefinitionen ermittelt. Fehlende oder mehrdeutige Definitionen brechen den Export ab. Es gibt keinen zusätzlichen Filter auf Aktiv: Die Freigabe richtet sich nach den vorgegebenen Kriterien.
+Der Sync-Workflow ergänzt anschließend die 30-Minuten-Fahrzeitflächen. Die Karte verwirft veraltete Flächen für entfernte oder verschobene Standorte. Falls der Routingdienst ausfällt, werden Standortänderungen gespeichert und fehlende Flächen im nächsten Lauf erneut versucht. Die regionale Analyse kann bis zur erfolgreichen Nachberechnung für neue Standorte unvollständig sein.
 
-`daten.csv` enthält ausschließlich freigegebene Unternehmensstandorte mit Geschäftsadresse, Netzwerk, HubSpot-Unternehmens-ID als stabiler KST-Schlüssel, Partnerkennung und verfügbaren Koordinaten. FRPL wird für die bestehenden Kartenfilter der Gruppe Franchise zugeordnet. Bestehende KST-Codes werden durch die HubSpot-ID ersetzt; die Partnerkennung bleibt unter Netzkennung suchbar.
+Erforderliche Actions-Secrets: HUBSPOT_TOKEN (Unternehmen/Felddefinitionen lesen), ORS_API_KEY (Fahrzeitflächen).
 
-Jeder erfolgreiche Lauf erstellt die vollständige aktuelle Liste: neue Unternehmen kommen hinzu, Änderungen werden übernommen, nicht mehr freigegebene oder archivierte Unternehmen entfallen. Auch eine leere Freigabeliste wird übernommen. Bei API-, Mapping- oder Adressfehlern wird die bestehende Datei nicht ersetzt. Es werden keine alten CSV-Datensätze als Freigabe oder Positionsquelle übernommen.
+## Offener fachlicher Widerspruch
 
-Partner ohne gültige HubSpot-Koordinaten bleiben im Verzeichnis, erscheinen jedoch nicht auf der Karte. Der Lauf meldet ihre Anzahl ohne einzelne Datensätze zu protokollieren. Fehlende Koordinaten müssen in HubSpot ergänzt werden.
+Gewünscht ist die Aufnahme der bisherigen acht Public-Filter-Ausschlüsse sowie das automatische Entfernen ausgeschiedener Partner. Czeczelits Neunkirchen und Czeczelits Wiener Neustadt haben in HubSpot jedoch bereits Status Inaktiv/Ausgeschieden und eine ausgeschlossene Lifecycle-Phase. Sie werden nach der Austrittsregel nicht exportiert. Falls sie weiterhin Partner sind, müssen Status und Lifecycle in HubSpot fachlich korrigiert werden. Eine dauerhafte Code-Ausnahme würde spätere Austritte umgehen und ist daher entfernt.
 
-Die Karte verwirft alte Fahrzeitflächen, die keinem aktuell sichtbaren Standort mit gleichem Netzwerk und gleicher Position entsprechen. Neue Fahrzeitflächen ergänzt der bestehende Isochronen-Workflow spätestens nach seinem nächsten geplanten Lauf (alle sechs Stunden); bis dahin kann die Abdeckung für neue Standorte fehlen. Bot-Commits des Imports lösen keinen weiteren Push-Workflow aus.
-
-Vor Aktivierung: Import auf dem Branch manuell ausführen und aggregierte Anzahl sowie Koordinatenlücken prüfen. Der Branch-Workflow muss dabei denselben Branch auschecken. Erst nach Prüfung zusammenführen. Der bisherige Datenbestand bleibt bis zum ersten erfolgreichen Lauf bestehen; die öffentliche Datei kann weiterhin historische Daten in der Git-Historie enthalten.
-
-Validierung: `python -m unittest discover -s scripts -p 'test_sync_hubspot_at.py'`.
-
-## Korrektur nach Detailprüfung am 21.10.2026
-
-Alle 27 bisher ungeklärten Altstandorte wurden in HubSpot gefunden. Der zusätzlich eingeführte Länderfilter war ungeeignet: Österreichische Partner haben teils leere oder falsche Länderwerte (US, DE, GB). Der Export folgt deshalb ausschließlich den vorgegebenen Lifecycle- und Public-Status-Kriterien. Er korrigiert keine CRM-Daten.
-
-Von den 27 gefundenen Standorten erfüllen 23 die Lifecycle-/Public-Kriterien. Reifen Jais Koblach, Reifen Jais Bischofshofen und Diewo Buchkirchen sind Not public; Czeczelits Wiener Neustadt ist ebenfalls Not public und hat eine andere Lifecycle-Phase. Mehrere Unternehmen an gleicher Adresse erklären die früheren mehrdeutigen Treffer. Abweichende Koordinaten bleiben separat zu prüfen.
+Die Umstellung ist bis zur Klärung dieser beiden Standorte nicht produktiv zusammengeführt. Tests: `python -m unittest discover -s scripts -p 'test_sync_hubspot_at.py'`.
