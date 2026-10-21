@@ -75,7 +75,8 @@ def main():
         for key in keys(record['properties']): indexed[key].add(i)
     distances = []
     result, bynetwork, used = collections.Counter(), collections.defaultdict(collections.Counter), set()
-    for row in old:
+    unresolved = collections.defaultdict(list)
+    for legacy_index, row in enumerate(old, 1):
         matches = set()
         rowkeys = keys(row, True)
         for tier in ('streetzip', 'address', 'id', 'namecity'):
@@ -99,8 +100,11 @@ def main():
                     km=6371*2*math.asin(min(1,math.sqrt(math.sin(dlat/2)**2+math.cos(lat1)*math.cos(lat2)*math.sin(dlon/2)**2)))
                     distances.append(km)
                 except (ValueError, KeyError): pass
+        if category in ("not_matched", "ambiguous"):
+            unresolved[category].append(legacy_index)
         result[category] += 1
         bynetwork[row.get('Netzwerk', '')][category] += 1
+    print('Legacy unresolved row ordinals (1-based data rows):', json.dumps(dict(unresolved)))
     print('Legacy CSV rows:', len(old))
     print('Legacy match categories:', dict(result))
     print('Matched public locations with position deviation >1km:', sum(d>1 for d in distances))
