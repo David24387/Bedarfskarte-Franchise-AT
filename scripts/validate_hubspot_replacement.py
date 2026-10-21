@@ -38,8 +38,6 @@ def main():
         if str(after) in seen:
             raise ValueError('Repeated cursor')
         seen.add(str(after))
-    from deep_reconcile_hubspot import report
-    report(records, config)
     at = records  # No country gate: HubSpot country metadata is unreliable.
     eligible = [r for r in at if r['properties'].get(lc) in networks
                 and r['properties'].get(public) == yes]
