@@ -1,5 +1,6 @@
 import unittest
-from sync_hubspot_at import LIFECYCLES, mapping, export_rows, detail_mapping, export_details
+from unittest.mock import patch
+from sync_hubspot_at import LIFECYCLES, mapping, export_rows, detail_mapping, export_details, fetch_partner_details
 
 
 class ExportTests(unittest.TestCase):
@@ -75,10 +76,10 @@ class ExportTests(unittest.TestCase):
 
     def test_details_only_include_published_ids_and_allowed_fields(self):
         props = [{'name': 'services', 'options': [{'value': 'tyres', 'label': 'Reifen'}]},
-                 {'name': 'phone'}, {'name': 'email'}]
+                 {'name': 'owneremail'}, {'name': 'rechnungs_kontakt_e_mailadresse'}]
         records = [self.record(services='tyres', phone='SECRET'), self.record('2', public='no')]
         details = export_details(records, export_rows(records, self.config), detail_mapping(props))
-        self.assertEqual(details['partners'], [{'id': '1', 'services': ['Reifen']}])
+        self.assertEqual(details['partners'], [{'id': '1', 'services': ['Reifen'], 'partnerType': ''}])
         self.assertEqual(export_details(records, [], detail_mapping(props))['partners'], [])
 
     def test_ambiguous_detail_alias_fails_instead_of_guessing(self):
@@ -88,7 +89,38 @@ class ExportTests(unittest.TestCase):
     def test_missing_detail_fields_are_not_invented(self):
         self.assertEqual(detail_mapping([]), {})
         records = [self.record()]
-        self.assertEqual(export_details(records, export_rows(records, self.config), {})['partners'], [{'id': '1'}])
+        self.assertEqual(export_details(records, export_rows(records, self.config), {})['partners'], [{'id': '1', 'partnerType': ''}])
+
+
+class AdditionalFieldTests(unittest.TestCase):
+    def test_verified_hubspot_fields_and_labels(self):
+        props = [{'name': n, 'options': []} for n in ['ermweb', 'bg_status', 'phone', 'e_mail_adresse', 'kundenstatus', 'firmenbuchnummer', 'ust_idnr', 'vertragsstartdatum', 'geschaftsfuhrung']]
+        props.append({'name': 'lifecyclestage', 'options': [{'value': 'light', 'label': 'Partner (FRPL–Franchise Partner Light)'}]})
+        fields = detail_mapping(props)
+        record = {'id': '1', 'properties': {'ermweb': 'https://example.com', 'bg_status': 'Nein', 'phone': '+43 123', 'e_mail_adresse': 'demo@example.com', 'kundenstatus': 'Aktiv', 'firmenbuchnummer': 'FN-DEMO', 'ust_idnr': 'AT-DEMO', 'vertragsstartdatum': '1577836800000', 'geschaftsfuhrung': 'Demo <Name>', 'lifecyclestage': 'light'}}
+        partner = export_details([record], [['1']], fields)['partners'][0]
+        self.assertEqual(partner['locationUrl'], 'https://example.com')
+        self.assertEqual(partner['contractStart'], '2020-01-01')
+        self.assertEqual(partner['partnerType'], 'FRPL')
+        self.assertEqual(partner['partnerStatus'], 'Aktiv')
+        self.assertEqual(partner['oem'], 'Nein')
+        self.assertEqual(partner['management'], 'Demo <Name>')
+
+    @patch('sync_hubspot_at.api')
+    def test_additional_fields_only_requested_for_eligible_ids(self, api):
+        api.return_value = {'status': 'COMPLETE', 'results': [{'id': 'public-1'}]}
+        fetch_partner_details([['public-1']], {'email': {'name': 'e_mail_adresse'}})
+        self.assertEqual(api.call_args.kwargs['body']['inputs'], [{'id': 'public-1'}])
+        self.assertEqual(api.call_args.kwargs['body']['properties'], ['e_mail_adresse'])
+        api.reset_mock()
+        self.assertEqual(fetch_partner_details([], {'email': {'name': 'e_mail_adresse'}}), [])
+        api.assert_not_called()
+
+    @patch('sync_hubspot_at.api')
+    def test_partial_batch_cannot_publish_incomplete_profiles(self, api):
+        api.return_value = {'status': 'COMPLETE', 'results': []}
+        with self.assertRaises(ValueError):
+            fetch_partner_details([['missing']], {'email': {'name': 'e_mail_adresse'}})
 
 
 if __name__ == '__main__':

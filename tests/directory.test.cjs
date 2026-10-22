@@ -22,3 +22,9 @@ assert.equal(D.attach(selected,[f(48,14,'EFR'),f(47,14,'EFR')]).length,1);
 assert(!D.profile(D.merge(base,null)).includes('mailto:'));
 assert(D.profile(a).includes('tel:+00000'));
 console.log('Directory tests passed: service AND-filter, region, details/ID boundary, links, XSS, service-specific coverage.');
+
+const enriched=D.merge(base,{id:base.kst,partnerType:'FRPL',lifecycle:'Partner Light',partnerStatus:'Aktiv',management:'Demo <b>Name</b>',companyRegister:'FN-DEMO',vatId:'AT-DEMO',contractStart:'2020-01-01',oem:'Nein'});
+const enrichedHtml=D.profile(enriched);
+for(const value of ['FRPL','Partner Light','Aktiv','FN-DEMO','AT-DEMO','2020-01-01','Nein','Demo &lt;b&gt;Name&lt;/b&gt;'])assert(enrichedHtml.includes(value));
+assert(!enrichedHtml.includes('<b>Name</b>'));
+assert(!D.profile(D.merge(base,{id:'OTHER',management:'SECRET'})).includes('SECRET'));

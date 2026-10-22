@@ -8,6 +8,8 @@ function merge(base,detail){
  const d=detail&&String(detail.id)===String(base.kst)?detail:{};
  return {...base,state:String(d.state||''),services:Array.isArray(d.services)?d.services.filter(x=>typeof x==='string'):[],
  openingHours:String(d.openingHours||''),locationUrl:safeUrl(d.locationUrl),website:safeUrl(d.website),
+ partnerType:String(d.partnerType||''),lifecycle:String(d.lifecycle||''),partnerStatus:String(d.partnerStatus||''),
+ companyRegister:String(d.companyRegister||''),vatId:String(d.vatId||''),contractStart:String(d.contractStart||''),management:String(d.management||''),
  oem:String(d.oem||''),phone:typeof d.phone==='string'?d.phone:null,email:typeof d.email==='string'?d.email:null,
  hasDetails:!!d.id};
 }
@@ -22,14 +24,14 @@ function profile(c){
  const location=c.locationUrl?`<a href="${esc(c.locationUrl)}" target="_blank" rel="noopener noreferrer">Euromaster-Standortseite ↗</a>`:'';
  const website=c.website?`<a href="${esc(c.website)}" target="_blank" rel="noopener noreferrer">Website ↗</a>`:'';
  const route=`<a href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}" target="_blank" rel="noopener noreferrer">Route planen ↗</a>`;
- return `<section class="directory-profile">${row('Adresse',esc(address))}${row('Netzwerk / Kennung',esc([c.network,c.netz].filter(Boolean).join(' · ')))}${c.state?row('Bundesland',esc(c.state)):''}`+
- `${row('Telefon',phone)}${row('E-Mail',email)}${row('Öffnungszeiten',c.openingHours?esc(c.openingHours).replace(/\n/g,'<br>'):'')}`+
+ return `<section class="directory-profile">${row('Adresse',esc(address))}${row('Netzwerk / Kennung',esc([c.partnerType||c.network,c.netz].filter(Boolean).join(' · ')))}${c.state?row('Bundesland',esc(c.state)):''}`+
+ `${row('Partnerstatus',esc(c.partnerStatus))}${row('Partnerphase',esc(c.lifecycle))}${row('Telefon',phone)}${row('E-Mail',email)}${row('Öffnungszeiten',c.openingHours?esc(c.openingHours).replace(/\n/g,'<br>'):'')}`+
  `${row('Dienstleistungen',c.services.length?c.services.map(s=>`<span class="directory-chip">${esc(s)}</span>`).join(' '):'')}`+
- `${c.oem?row('OEM',esc(c.oem)):''}<div class="directory-links">${[location,website,route].filter(Boolean).join(' · ')}</div>`+
+ `${row('OEM',esc(c.oem))}${row('Geschäftsführung',esc(c.management))}${row('Firmenbuchnummer',esc(c.companyRegister))}${row('USt-ID',esc(c.vatId))}${row('Vertragsstart',esc(c.contractStart))}<div class="directory-links">${[location,website,route].filter(Boolean).join(' · ')}</div>`+
  `${!c.hasDetails?'<p class="directory-muted">Erweiterte Standortinformationen noch nicht verfügbar.</p>':''}</section>`;
 }
 function listItem(c){
- return `<button type="button" class="directory-list-item" data-location-id="${esc(c.kst)}"><strong>${esc(c.firma||c.ort)}</strong><span>${esc([c.network,c.plz,c.ort].filter(Boolean).join(' · '))}</span>${!c.mappable?'<small>Position fehlt oder ist nicht verwendbar</small>':''}</button>`;
+ return `<button type="button" class="directory-list-item" data-location-id="${esc(c.kst)}"><strong>${esc(c.firma||c.ort)}</strong><span>${esc([c.partnerType||c.network,c.plz,c.ort].filter(Boolean).join(' · '))}</span>${!c.mappable?'<small>Position fehlt oder ist nicht verwendbar</small>':''}</button>`;
 }
 function attach(centers,features){
  const keys=new Set(centers.map(c=>coordKey(c.lat,c.lng,c.network)));

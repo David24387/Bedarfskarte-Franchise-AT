@@ -29,8 +29,16 @@ DETAIL_FIELDS = {
     'services': ('dienstleistungen', 'leistungen', 'services'),
     'openingHours': ('kernoeffnungszeiten', 'kernöffnungszeiten', 'oeffnungszeiten', 'öffnungszeiten', 'opening_hours'),
     'website': ('website',),
-    'locationUrl': ('euromaster_standort_url', 'euromaster_link', 'standort_url'),
-    'oem': ('oem',),
+    'locationUrl': ('ermweb', 'euromaster_standort_url', 'euromaster_link', 'standort_url'),
+    'oem': ('bg_status', 'oem'),
+    'phone': ('phone',),
+    'email': ('e_mail_adresse',),
+    'partnerStatus': ('kundenstatus',),
+    'lifecycle': ('lifecyclestage',),
+    'companyRegister': ('firmenbuchnummer',),
+    'vatId': ('ust_idnr',),
+    'contractStart': ('vertragsstartdatum',),
+    'management': ('geschaftsfuhrung',),
 }
 
 
@@ -60,8 +68,19 @@ def export_details(records, rows, fields):
             labels = {o['value']: o['label'] for o in prop.get('options', [])}
             if field == 'services':
                 partner[field] = [labels.get(v.strip(), v.strip()) for v in value.split(';') if v.strip()]
+            elif field == 'contractStart':
+                try:
+                    partner[field] = (datetime.fromtimestamp(float(value) / 1000, timezone.utc).date().isoformat()
+                                      if value.isdigit() else datetime.fromisoformat(value.replace('Z', '+00:00')).date().isoformat()) if value else ''
+                except (ValueError, OverflowError, OSError):
+                    raise ValueError('Invalid contract date; export unchanged') from None
             else:
                 partner[field] = labels.get(value, value)
+        lifecycle = partner.get('lifecycle', '')
+        partner['partnerType'] = next((code for code, label in [
+            ('FRP', 'Partner (FRP-Franchise)'), ('FRPL', 'Partner (FRPL–Franchise Partner Light)'),
+            ('EFR', 'Partner (EFR)'), ('PLP', 'Partner (PLP)')]
+            if norm(lifecycle) == norm(label)), '')
         partners.append(partner)
     return {'schemaVersion': 1, 'source': 'HubSpot',
             'partners': sorted(partners, key=lambda p: p['id'])}
@@ -73,14 +92,14 @@ def norm(value):
         if not unicodedata.combining(c)))
 
 
-def api(path, params=None):
+def api(path, params=None, body=None):
     url = 'https://api.hubapi.com' + path
     if params:
         url += '?' + urllib.parse.urlencode(params)
     for attempt in range(5):
-        req = urllib.request.Request(url, headers={
+        req = urllib.request.Request(url, data=json.dumps(body).encode() if body is not None else None, headers={
             'Authorization': 'Bearer ' + os.environ['HUBSPOT_TOKEN'],
-            'Accept': 'application/json'})
+            'Accept': 'application/json', 'Content-Type': 'application/json'})
         try:
             with urllib.request.urlopen(req, timeout=45) as response:
                 return json.load(response)
@@ -89,6 +108,27 @@ def api(path, params=None):
                 raise RuntimeError('HubSpot HTTP %s; export unchanged' % exc.code) from None
             time.sleep(2 ** attempt)
     raise RuntimeError('HubSpot unavailable')
+
+
+def fetch_partner_details(rows, fields):
+    """Additional company fields are requested only for eligible Public partners."""
+    records = []
+    ids = [r[0] for r in rows]
+    if not fields:
+        return [{'id': id, 'properties': {}} for id in ids]
+    for offset in range(0, len(ids), 100):
+        batch = ids[offset:offset + 100]
+        result = api('/crm/v3/objects/companies/batch/read', body={
+            'properties': sorted({p['name'] for p in fields.values()}),
+            'inputs': [{'id': id} for id in batch]})
+        received = result.get('results', [])
+        if (result.get('errors') or result.get('numErrors') or
+                result.get('status') not in (None, 'COMPLETE') or
+                len(received) != len(batch) or
+                {str(r['id']) for r in received} != set(batch)):
+            raise ValueError('Incomplete partner details; export unchanged')
+        records.extend(received)
+    return records
 
 
 def resolve_property(properties, label):
@@ -166,7 +206,6 @@ def main():
               'country_code', 'land', 'partner_id', 'forms_partner_id_focus_id',
               'latitude', 'longitude', 'hs_latitude', 'hs_longitude',
               'hs_gps_latitude', 'hs_gps_longitude', config[0], config[1]]
-    wanted.extend(p['name'] for p in fields.values())
     records, after, seen = [], None, set()
     while True:
         params = {'limit': 100, 'properties': ','.join(k for k in wanted if k in names)}
@@ -181,7 +220,7 @@ def main():
             raise ValueError('Repeated pagination cursor')
         seen.add(str(after))
     rows = export_rows(records, config, audience=args.audience)
-    details = export_details(records, rows, fields)
+    details = export_details(fetch_partner_details(rows, fields), rows, fields)
     # Empty snapshots are valid: revoked publication must remove old partners too.
     buffer = io.StringIO(newline='')
     writer = csv.writer(buffer)
@@ -193,6 +232,8 @@ def main():
               'partners': len(rows), 'missingCoordinates': missing,
               'mappedDetailFields': sorted(fields),
               'missingDetailFields': sorted(set(DETAIL_FIELDS) - set(fields))}
+    status['filledDetailFields'] = {field: sum(bool(p.get(field)) for p in details['partners'])
+                                   for field in list(DETAIL_FIELDS) + ['partnerType']}
     outputs = {'daten.csv': buffer.getvalue(),
                'standorte.json': json.dumps(details, ensure_ascii=False),
                'export_status.json': json.dumps(status, ensure_ascii=False)}

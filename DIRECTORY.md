@@ -6,7 +6,7 @@ Der Workflow `sync-centers.yml` läuft stündlich, manuell und bei Änderungen a
 
 Es gelten ausschließlich die Partnerphasen FRP, FRPL, EFR und PLP sowie Public_Status = Public. Es gibt keinen zusätzlichen Länder- oder Aktivfilter. Neue freigegebene Partner kommen hinzu, entzogene Freigaben und entfernte Partner entfallen. API-, Mapping- und Adressfehler lassen den letzten erfolgreichen Stand unverändert. Ein leerer erfolgreicher Export entfernt auch alle bisherigen Standorte.
 
-Die Standortprofile übernehmen vorhandene Unternehmensfelder für Bundesland, Dienstleistungen, Kernöffnungszeiten, Website, Standortlink und OEM. Exakte Feldnamen oder Labels werden aufgelöst, nicht verfügbare Felder werden im Exportstatus gemeldet. Telefon und E-Mail werden nicht exportiert. Keine Kontakte, Deals oder Notizen werden angefordert. Die Token-Berechtigungen sind davon unabhängig und müssen in HubSpot eingeschränkt werden.
+Die Standortprofile übernehmen vorhandene Unternehmensfelder für Bundesland, Dienstleistungen, Kernöffnungszeiten, Website, Standortlink und OEM. Exakte Feldnamen oder Labels werden aufgelöst, nicht verfügbare Felder werden im Exportstatus gemeldet. Zusätzlich werden Geschäftstelefon, geschäftliche E-Mail, Partnerstatus, die konkrete Lifecycle-Phase (FRP/FRPL/EFR/PLP), Firmenbuchnummer, USt-ID, Vertragsstart und Geschäftsführung aus den Unternehmensfeldern übernommen. Diese zusätzlichen Profileigenschaften werden erst nach Anwendung der Public-/Lifecycle-Auswahl per Batch-API für die freigegebenen Partner geladen. Es werden keine separaten Kontaktobjekte gelesen. Die Ausgabe enthält damit auch die ausdrücklich gewünschten Personenangaben aus dem Unternehmensfeld Geschäftsführung. Keine Kontakte, Deals oder Notizen werden angefordert. Die Token-Berechtigungen sind davon unabhängig und müssen in HubSpot eingeschränkt werden.
 
 Die Liste und Profile werden anhand der Unternehmens-ID verknüpft. Fehlende Koordinaten bleiben als Listeneintrag sichtbar. Bundesland- und Leistungsfilter begrenzen auch die Fahrzeitabdeckung. Die Fahrzeitberechnung verwendet weiterhin OpenRouteService und läuft nach Veröffentlichung der Standortdaten. Ein Routingfehler verhindert keine Standortaktualisierung; fehlende Flächen werden erneut berechnet. Die bisherigen Regionaldaten bleiben bestehen.
 
@@ -16,4 +16,4 @@ Die Liste und Profile werden anhand der Unternehmens-ID verknüpft. Fehlende Koo
 
 `node --test tests/directory.test.cjs tests/integration.test.cjs`
 
-Alle Tests verwenden künstliche Daten. Der echte Export benötigt das Secret und läuft ausschließlich in GitHub Actions. `export_status.json` meldet Zeitpunkt, Mengen, Koordinatenlücken und Feldzuordnung ohne CRM-Einzelwerte.
+Alle Tests verwenden künstliche Daten. Der echte Export benötigt das Secret und läuft ausschließlich in GitHub Actions. `export_status.json` meldet Zeitpunkt, Mengen, Koordinatenlücken und Feldzuordnung sowie Befüllungszahlen ohne CRM-Einzelwerte.
