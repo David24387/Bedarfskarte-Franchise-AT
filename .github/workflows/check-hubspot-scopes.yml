@@ -23,13 +23,18 @@ jobs:
           request = urllib.request.Request(
               'https://api.hubapi.com/oauth/v2/private-apps/get/access-token-info',
               data=json.dumps({'tokenKey': token}).encode(),
-              headers={'Content-Type': 'application/json', 'Accept': 'application/json'},
+              headers={'Content-Type': 'application/json', 'Accept': 'application/json', 'Authorization': 'Bearer ' + token},
               method='POST')
           try:
               with urllib.request.urlopen(request, timeout=45) as response:
                   info = json.load(response)
           except urllib.error.HTTPError as error:
-              raise SystemExit('Token-Metadaten: HTTP ' + str(error.code)) from None
+              try:
+                  fallback = urllib.request.Request('https://api.hubapi.com/oauth/v1/access-tokens/' + token)
+                  with urllib.request.urlopen(fallback, timeout=45) as response:
+                      info = json.load(response)
+              except Exception:
+                  raise SystemExit('Token-Metadaten nicht verfügbar; keine Datensätze abgefragt') from None
           except Exception:
               raise SystemExit('Token-Metadaten konnten nicht geprüft werden') from None
           scopes = info.get('scopes')
