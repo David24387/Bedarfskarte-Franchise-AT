@@ -7,6 +7,8 @@ const assert=require('node:assert/strict'),fs=require('node:fs');
   const page=await browser.newPage({viewport,hasTouch:true,isMobile:true});const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.goto('http://127.0.0.1:8765/',{waitUntil:'domcontentloaded'});
   await page.locator('#directoryList .directory-list-item').first().waitFor({state:'attached',timeout:60000});
+  console.log('Map before interactions:', JSON.stringify(await page.evaluate(()=>({center:map.getCenter(),size:map.getSize(),width:innerWidth}))));
+  await page.screenshot({path:`mobile-screenshots/${viewport.width}x${viewport.height}-map.png`});
   const mobile=viewport.width<=900;
   if(mobile){
    assert(await page.locator('#mobileFilterToggle').isVisible());assert(!(await page.locator('#search').isVisible()));
@@ -20,6 +22,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs');
    const rect=await page.locator('#mobileDetail').boundingBox();assert(rect.x>=0&&rect.x+rect.width<=viewport.width+1);assert(rect.y>=0&&rect.y+rect.height<=viewport.height+1);
    await page.screenshot({path:`mobile-screenshots/${viewport.width}x${viewport.height}-details.png`});
    await page.locator('#closeMobileDetail').click();assert(!(await page.locator('#mobileDetail').isVisible()));
+   console.log('Map after details:',JSON.stringify(await page.evaluate(()=>({center:map.getCenter(),size:map.getSize()}))));
    await page.locator('#mobileFilterToggle').click();await page.locator('#search').waitFor({state:'visible'});
    await page.screenshot({path:`mobile-screenshots/${viewport.width}x${viewport.height}-filters.png`});
   }
