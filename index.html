@@ -19,7 +19,7 @@ if(data[3].status==='fulfilled'){
  regional.forEach(r=>{r._feature={type:'Feature',properties:{},geometry:r.geometry};r._bbox=turf.bbox(r._feature)});
 }else console.warn('Regionaldaten nicht verfügbar',data[3].reason);
 if(data[5].status==='fulfilled'&&data[5].value.schemaVersion===1&&Array.isArray(data[5].value.partners))partnerDetails=new Map(data[5].value.partners.map(p=>[String(p.id),p]));
-$('directoryNotice').textContent=partnerDetails.size?'Standortinformationen aus dem bereinigten Export. Fehlende Angaben werden gekennzeichnet.':'Erweiterte Standortinformationen noch nicht verfügbar. Der bereinigte HubSpot-Export ist noch nicht aktiviert.';
+$('directoryNotice').textContent=partnerDetails.size?'Standortinformationen aus HubSpot. Fehlende Angaben werden gekennzeichnet.':'Erweiterte HubSpot-Standortinformationen noch nicht verfügbar.';
 if(data[4].status==='fulfilled')parse(Papa.parse(data[4].value,{header:false,skipEmptyLines:true}).data);
 else {refreshRanking();status('daten.csv konnte nicht geladen werden')}
 }

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Export only public AT partners. No CRM record values or credentials in logs."""
 import csv
+from datetime import datetime, timezone
 import argparse
 import io
 import json
@@ -21,6 +22,49 @@ LIFECYCLES = {
 }
 HEADER = ['KST', 'Netzwerk', 'Status', 'Netzkennung', 'Gesellschaft', 'Strasse',
           'PLZ', 'Ort', 'Lat./Breitengard', 'Long./Längengrad']
+
+# Exact aliases only; never collect unrelated free-text or contact properties.
+DETAIL_FIELDS = {
+    'state': ('state', 'bundesland'),
+    'services': ('dienstleistungen', 'leistungen', 'services'),
+    'openingHours': ('kernoeffnungszeiten', 'kernöffnungszeiten', 'oeffnungszeiten', 'öffnungszeiten', 'opening_hours'),
+    'website': ('website',),
+    'locationUrl': ('euromaster_standort_url', 'euromaster_link', 'standort_url'),
+    'oem': ('oem',),
+}
+
+
+def detail_mapping(properties):
+    result = {}
+    for field, aliases in DETAIL_FIELDS.items():
+        for alias in aliases:
+            matches = [p for p in properties if norm(p['name']) == norm(alias)
+                       or norm(p.get('label')) == norm(alias)]
+            if len(matches) > 1:
+                raise ValueError('Ambiguous directory property: ' + field)
+            if matches:
+                result[field] = matches[0]
+                break
+    return result
+
+
+def export_details(records, rows, fields):
+    eligible = {r[0] for r in rows}
+    partners = []
+    for record in records:
+        if str(record['id']) not in eligible:
+            continue
+        partner = {'id': str(record['id'])}
+        for field, prop in fields.items():
+            value = str(record.get('properties', {}).get(prop['name']) or '').strip()
+            labels = {o['value']: o['label'] for o in prop.get('options', [])}
+            if field == 'services':
+                partner[field] = [labels.get(v.strip(), v.strip()) for v in value.split(';') if v.strip()]
+            else:
+                partner[field] = labels.get(value, value)
+        partners.append(partner)
+    return {'schemaVersion': 1, 'source': 'HubSpot',
+            'partners': sorted(partners, key=lambda p: p['id'])}
 
 
 def norm(value):
@@ -117,10 +161,12 @@ def main():
     properties = api('/crm/v3/properties/companies')['results']
     config = mapping(properties)
     names = {p['name'] for p in properties}
+    fields = detail_mapping(properties)
     wanted = ['name', 'address', 'zip', 'city', 'country', 'hs_country_code',
               'country_code', 'land', 'partner_id', 'forms_partner_id_focus_id',
               'latitude', 'longitude', 'hs_latitude', 'hs_longitude',
               'hs_gps_latitude', 'hs_gps_longitude', config[0], config[1]]
+    wanted.extend(p['name'] for p in fields.values())
     records, after, seen = [], None, set()
     while True:
         params = {'limit': 100, 'properties': ','.join(k for k in wanted if k in names)}
@@ -135,16 +181,28 @@ def main():
             raise ValueError('Repeated pagination cursor')
         seen.add(str(after))
     rows = export_rows(records, config, audience=args.audience)
+    details = export_details(records, rows, fields)
     # Empty snapshots are valid: revoked publication must remove old partners too.
     buffer = io.StringIO(newline='')
     writer = csv.writer(buffer)
     writer.writerow(HEADER)
     writer.writerows(rows)
-    target = Path('daten.csv')
-    temporary = target.with_suffix('.csv.new')
-    temporary.write_text(buffer.getvalue(), encoding='utf-8')
-    temporary.replace(target)
     missing = sum(not r[8] for r in rows)
+    status = {'schemaVersion': 1, 'source': 'HubSpot',
+              'exportedAt': datetime.now(timezone.utc).isoformat(),
+              'partners': len(rows), 'missingCoordinates': missing,
+              'mappedDetailFields': sorted(fields),
+              'missingDetailFields': sorted(set(DETAIL_FIELDS) - set(fields))}
+    outputs = {'daten.csv': buffer.getvalue(),
+               'standorte.json': json.dumps(details, ensure_ascii=False),
+               'export_status.json': json.dumps(status, ensure_ascii=False)}
+    # Prepare all files before replacement; the workflow publishes one commit.
+    for name, content in outputs.items():
+        Path(name + '.new').write_text(content, encoding='utf-8')
+    for name in outputs:
+        Path(name + '.new').replace(Path(name))
+    print('Mapped directory fields:', ', '.join(sorted(fields)))
+    print('Unavailable directory fields:', ', '.join(status['missingDetailFields']))
     print('HubSpot partners (' + args.audience + '):', len(rows), '| Missing HubSpot coordinates:', missing)
     print('Only business directory fields exported. No individual records logged.')
 

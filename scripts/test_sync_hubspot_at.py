@@ -1,5 +1,5 @@
 import unittest
-from sync_hubspot_at import LIFECYCLES, mapping, export_rows
+from sync_hubspot_at import LIFECYCLES, mapping, export_rows, detail_mapping, export_details
 
 
 class ExportTests(unittest.TestCase):
@@ -72,6 +72,23 @@ class ExportTests(unittest.TestCase):
             export_rows([self.record(address='')], self.config)
         with self.assertRaises(ValueError):
             export_rows([self.record(), self.record()], self.config)
+
+    def test_details_only_include_published_ids_and_allowed_fields(self):
+        props = [{'name': 'services', 'options': [{'value': 'tyres', 'label': 'Reifen'}]},
+                 {'name': 'phone'}, {'name': 'email'}]
+        records = [self.record(services='tyres', phone='SECRET'), self.record('2', public='no')]
+        details = export_details(records, export_rows(records, self.config), detail_mapping(props))
+        self.assertEqual(details['partners'], [{'id': '1', 'services': ['Reifen']}])
+        self.assertEqual(export_details(records, [], detail_mapping(props))['partners'], [])
+
+    def test_ambiguous_detail_alias_fails_instead_of_guessing(self):
+        with self.assertRaises(ValueError):
+            detail_mapping([{'name': 'state'}, {'name': 'custom_state', 'label': 'State'}])
+
+    def test_missing_detail_fields_are_not_invented(self):
+        self.assertEqual(detail_mapping([]), {})
+        records = [self.record()]
+        self.assertEqual(export_details(records, export_rows(records, self.config), {})['partners'], [{'id': '1'}])
 
 
 if __name__ == '__main__':
