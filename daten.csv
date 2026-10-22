@@ -8,7 +8,10 @@ KST,Netzwerk,Status,Netzkennung,Gesellschaft,Strasse,PLZ,Ort,Lat./Breitengard,Lo
 13606582222,Franchise,geöffnet,813A,813A Protect Car Aslan Ayhan e.U.,Querstraße 17,2602,Sollenau,47.90016885424375,16.263795437565445
 188392979653,Franchise,geöffnet,839A,839A Auto Aigner GmbH,Spörken 40,3264,Gresten,47.97625993433237,15.023519566528165
 18940163819,Franchise,geöffnet,803A,803A Gerd Bauer Motorcenter GmbH,Industriegelände West 12,2460 ,Bruck an der Leitha,48.02392298392617,16.75732174794885
+26626487501,Franchise,geöffnet,838B,838B Reifen Jais GmbH - KOBLACH,Straßenhäuser 70,6842 ,Koblach,47.30960811271554,9.619754059326938
 266634787006,Franchise,geöffnet,817A,817A KFZ-Technik Pfeiffer GmbH,Anny Wödl-Gasse 1,2700,Wiener Neustadt,47.80562601116137,16.264664653452723
+275375959280,Franchise,geöffnet,838C,838C Reifen Jais GmbH - BISCHOFSHOFEN,Grasslau 9,5500,Bischofshofen,47.41255403318792,13.221660256906258
+354165597411,EFR,geöffnet,E549,"E549 ""ReifenZone"" Alexander Kröger e.U.",Aigenstraße 13,4600,Thalheim bei Wels,48.151724988967224,14.03094112045351
 354247614654,Franchise,geöffnet,840A,840A Limarutt clean & drive,Kühau 34,8130,Frohnleiten,47.28174910541567,15.31624069948333
 354281578744,Franchise,geöffnet,810A,810A Lackiererei & KFZ Fachbetrieb Ritter GmH,Pischelsdorf 513,8212,Pischelsdorf am Kulm,47.175505552778496,15.788601440473284
 386718640348,Franchise,geöffnet,837B,837B PF Fahrzeug Kompetenzzentrum GmbH,"Julius-Raab-Straße 27/Halle D/Sektion 4, A-2203 Großebersdorf",2203,Großebersdorf,48.352772051772675,16.469630277804804
@@ -22,6 +25,7 @@ KST,Netzwerk,Status,Netzkennung,Gesellschaft,Strasse,PLZ,Ort,Lat./Breitengard,Lo
 47200980186,Franchise,geöffnet,818A,818A Auto Novak e.U.,"Gewerbepark Zwentendorf, Objekt 5",3435 ,Zwentendorf an der Donau,48.33890036228159,15.905337819414479
 47200992495,Franchise,geöffnet,820A,820A M. Partsch Kraftfahrzeugwerkstättenbetriebe GmbH & Co KG,Gewerbestrasse 1,2721,Bad Fischau-Brunn,47.84272000488021,16.18617089122355
 47347353792,Franchise,geöffnet,821A,821A BAUMI KFZ Technik GmbH,Lagerstraße 1,9400,Wolfsberg,46.82806071104587,14.838859330123492
+8323565505,EFR,geöffnet,,EFR Einkaufsgesellschaft Freier Reifenfachhändler mbH & Co. KG,40 Königsplatz,34117,Kassel,,
 8349445322,Franchise,geöffnet,864A,864A Euro-Reifen Kotulek GmbH,Triesterstrasse 131,2512,Oeynhausen,47.98003736642757,16.287180924548007
 8366904556,EFR,geöffnet,E004,E004 ARZ Alfons Reifen-Zentrum GesmbH,Hauptstraße 1,2444,Seibersdorf,47.959676627165194,16.513683487761767
 8366904558,EFR,geöffnet,E003,E003 Richard Frece KG,Rosenbursenstraße 4,1010,Wien,48.20928705040737,16.380640967120826
@@ -39,8 +43,11 @@ KST,Netzwerk,Status,Netzkennung,Gesellschaft,Strasse,PLZ,Ort,Lat./Breitengard,Lo
 8367412696,EFR,geöffnet,E030,E030 Manfred Wallinger GmbH,Markt 125,5441,Abtenau,47.56675105908246,13.340048589543676
 8367412697,EFR,geöffnet,E024,"E024 Reifen Schneider, Inh. Markus Schneider",Josef Perger Straße 4,3031,Pressbaum,48.17944638016641,16.03787209104245
 8367412699,Franchise,geöffnet,856A,856A RTA Hirscher GmbH,Lammertalstraße 24,5522,St. Martin am Tennengebirge,47.46961373648217,13.38418943396663
+8367427058,EFR,geöffnet,E006,E006 Auer Reifen GmbH,Schallmooser Hauptstraße 71,5020,Salzburg,47.80747718917234,13.059422904340689
+8367427059,Franchise,geöffnet,843A,843A Diewo OG,Siggstraße 2,4611,Buchkirchen,48.22603128778395,14.027926716880154
 8367427062,Franchise,geöffnet,830A,830A Pabla KFZ-Meisterbetrieb GmbH,Gewerbestraße 6,5102,Anthering,47.86602315649267,13.009855357372219
 8367444700,EFR,geöffnet,E009,E009 Reifen Edtmayer GmbH & Co. KG,Maierhof 2,5311,Innerschwand am Mondsee,47.831964706494865,13.396457837722275
+8367444701,EFR,geöffnet,E021,E021 Order Shop Pächter Antonio Halupa,Oberlaaer Str. 257,1230,Wien,48.14489169473745,16.373491878211464
 8367471071,Franchise,geöffnet,851A,851A Autohaus Ortner GmbH,Picassostr. 42,9500,Villach,46.62073453818842,13.853884677536662
 8367471072,Franchise,geöffnet,870A,870A M&Ö Reifen Autoservice GmbH,Wurlitzergasse 25-27,1160,Wien,48.214591674540976,16.31698177362638
 8367471073,Franchise,geöffnet,828A,828A Auto Haunschmid GmbH,Triester Straße 336,1230,Wien,48.128055198683406,16.32025770842618
@@ -67,6 +74,7 @@ KST,Netzwerk,Status,Netzkennung,Gesellschaft,Strasse,PLZ,Ort,Lat./Breitengard,Lo
 8811510743,EFR,geöffnet,E013,E013 Fähnrich Autobedarf Reifendiskont GmbH,Auenstraße 128,9710,Neu Feffernitz,46.687421162864474,13.682362768361816
 8811541437,EFR,geöffnet,E043,E043 Karosserie und Kfz Technikzentrum Gaißau Weißenbacher OG,Gaißau 398,5425,Krispl,47.71786500526396,13.192034218542465
 8811616962,EFR,geöffnet,E025,E025 Schuster Reifenhandel e.U.,Dueler Weg 20,9232,Rosegg,46.59222671638592,14.030586364653661
+9012876018,PLP,geöffnet,P009,P009 Wimmer & Wimmer GmbH,Am Straßfeld 2,2401,Fischamend,48.11461550591752,16.626080901489935
 9226063547,Franchise,geöffnet,805A,805A ATC KFZ-Meisterbetrieb GmbH,Mitschastraße 44,2130,Mistelbach,48.56384772580243,16.57605600492629
 92534364393,Franchise,geöffnet,825A,825A KA-RO Car-Care & Wheels GmbH,Bahnhofstraße 786,8970,Schladming,47.39421727351772,13.681838201429576
 9269365737,EFR,geöffnet,E046,E046 MT Reifenservice OG,Graf 131a,6500,Grins,47.13958966944081,10.534748509704153
