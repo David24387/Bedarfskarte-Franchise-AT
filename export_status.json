@@ -1,0 +1,1 @@
+{"schemaVersion": 1, "source": "HubSpot", "exportedAt": "2026-10-22T05:04:20.318277+00:00", "partners": 73, "missingCoordinates": 0, "mappedDetailFields": ["openingHours", "services", "state", "website"], "missingDetailFields": ["locationUrl", "oem"]}
