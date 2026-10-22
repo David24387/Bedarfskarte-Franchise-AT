@@ -1,0 +1,56 @@
+name: Alle aktiven AT-Partner inklusive Non Public synchronisieren
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['scripts/sync_hubspot_at.py', '.github/workflows/sync-centers.yml']
+  schedule:
+    - cron: '17 * * * *'
+permissions:
+  contents: write
+concurrency:
+  group: center-sync-at
+  cancel-in-progress: false
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Aktiv- und Public-Filter mit Testdaten prüfen
+        run: python -m unittest discover -s scripts -p 'test_sync_hubspot_at.py'
+      - name: Alle aktiven Netzwerkpartner laden, auch Non Public
+        env:
+          HUBSPOT_TOKEN: ${{ secrets.HUBSPOT_TOKEN }}
+        run: python scripts/sync_hubspot_at.py
+      - name: Aktiven Standortbestand veröffentlichen
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add daten.csv standorte.json export_status.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'Sync all active AT partners including Non Public'
+            git pull --rebase origin main
+            git push
+          fi
+      - name: Fahrzeitflächen ergänzen
+        id: coverage
+        timeout-minutes: 3
+        continue-on-error: true
+        env:
+          ORS_API_KEY: ${{ secrets.ORS_API_KEY }}
+        run: python -u build_isochronen.py
+      - name: Berechnete Flächen speichern
+        if: always()
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add isochronen.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'Update active AT partner drive-time areas'
+            git pull --rebase origin main
+            git push
+          fi

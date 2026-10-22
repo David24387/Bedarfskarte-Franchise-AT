@@ -1,7 +1,10 @@
 import unittest
 from unittest.mock import patch
-from sync_hubspot_at import LIFECYCLES, mapping, export_rows, detail_mapping, export_details, fetch_partner_details
+from sync_hubspot_at import LIFECYCLES, mapping, export_rows as internal_export_rows, detail_mapping, export_details, fetch_partner_details
 
+
+def export_rows(records, config, audience='public'):
+    return internal_export_rows(records, config, audience)
 
 class ExportTests(unittest.TestCase):
     def setUp(self):
@@ -10,7 +13,8 @@ class ExportTests(unittest.TestCase):
                 {'label': label, 'value': str(i)} for i, label in enumerate(LIFECYCLES)]},
             {'name': 'public', 'label': 'Public_Status', 'options': [
                 {'label': 'Public', 'value': 'yes'},
-                {'label': 'Not public', 'value': 'no'}]}]
+                {'label': 'Not public', 'value': 'no'}]},
+            {'name':'kundenstatus','options':[{'label':'Aktiv','value':'Aktiv'},{'label':'Inaktiv','value':'Inaktiv'}]}]
         self.config = mapping(self.props)
 
     def record(self, i='1', **changes):
@@ -41,8 +45,10 @@ class ExportTests(unittest.TestCase):
     def test_no_audience_can_bypass_public_filter(self):
         for public in ('no', None, '', 'unknown'):
             self.assertEqual(export_rows([self.record(public=public)], self.config), [])
-        with self.assertRaises(ValueError):
-            export_rows([self.record(public='no')], self.config, 'internal')
+        self.assertEqual(len(export_rows([self.record(public='no')], self.config, 'internal')), 1)
+        for state in ('Inaktiv', None, ''):
+            self.assertEqual(export_rows([self.record(kundenstatus=state)], self.config, 'internal'), [])
+            self.assertEqual(export_rows([self.record(kundenstatus=state)], self.config, 'public'), [])
 
     def test_departed_deleted_and_revoked_partners_leave_snapshot(self):
         self.assertEqual(export_rows([self.record(lifecyclestage='inactive')], self.config), [])

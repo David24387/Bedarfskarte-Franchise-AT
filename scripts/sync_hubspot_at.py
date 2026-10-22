@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Export only public AT partners. No CRM record values or credentials in logs."""
+"""Export active AT partners by audience. No CRM values or credentials in logs."""
 import csv
 from datetime import datetime, timezone
 import argparse
@@ -154,7 +154,8 @@ def mapping(properties):
                 for label, network in LIFECYCLES.items()}
     if len(networks) != 4:
         raise ValueError('Lifecycle values must be distinct')
-    return lifecycle['name'], public['name'], networks, resolve_option(public, 'Public')
+    active = resolve_property(properties, 'kundenstatus')
+    return lifecycle['name'], public['name'], networks, resolve_option(public, 'Public'), active['name'], resolve_option(active, 'Aktiv')
 
 
 def coordinates(p):
@@ -169,15 +170,15 @@ def coordinates(p):
     return '', ''
 
 
-def export_rows(records, config, audience='public'):
-    if audience != 'public':
-        raise ValueError('Only Public partners may be exported')
-    lifecycle, public, networks, public_value = config
+def export_rows(records, config, audience='internal'):
+    if audience not in ('public', 'internal'):
+        raise ValueError('Unknown audience')
+    lifecycle, public, networks, public_value, active, active_value = config
     rows = []
     for record in records:
         p = record.get('properties', {})
         network = networks.get(p.get(lifecycle))
-        if not network or p.get(public) != public_value:
+        if not network or p.get(active) != active_value or (audience == 'public' and p.get(public) != public_value):
             continue
         if record.get('archived'):
             continue
@@ -192,61 +193,63 @@ def export_rows(records, config, audience='public'):
     return sorted(rows, key=lambda r: r[0])
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--audience', choices=('public',), default='public')
-    args = parser.parse_args()
-    if not os.environ.get('HUBSPOT_TOKEN'):
-        raise SystemExit('HUBSPOT_TOKEN secret missing')
-    properties = api('/crm/v3/properties/companies')['results']
+def fetch_active(properties, request=None):
+    request = request or api
     config = mapping(properties)
+    lifecycle, public, networks, public_value, active, active_value = config
     names = {p['name'] for p in properties}
     fields = detail_mapping(properties)
-    wanted = ['name', 'address', 'zip', 'city', 'country', 'hs_country_code',
-              'country_code', 'land', 'partner_id', 'forms_partner_id_focus_id',
-              'latitude', 'longitude', 'hs_latitude', 'hs_longitude',
-              'hs_gps_latitude', 'hs_gps_longitude', config[0], config[1]]
-    records, after, seen = [], None, set()
+    wanted = {'name', 'address', 'zip', 'city', 'partner_id', 'forms_partner_id_focus_id',
+        'latitude', 'longitude', 'hs_latitude', 'hs_longitude', 'hs_gps_latitude',
+        'hs_gps_longitude', lifecycle, public, active}
+    wanted.update(p['name'] for p in fields.values())
+    records, after, cursors = [], None, set()
     while True:
-        params = {'limit': 100, 'properties': ','.join(k for k in wanted if k in names)}
+        body = {'filterGroups': [{'filters': [
+            {'propertyName': lifecycle, 'operator': 'IN', 'values': list(networks)},
+            {'propertyName': active, 'operator': 'EQ', 'value': active_value}
+        ]}], 'properties': sorted(wanted & names), 'limit': 100}
         if after is not None:
-            params['after'] = after
-        page = api('/crm/v3/objects/companies', params)
+            body['after'] = str(after)
+        page = request('/crm/v3/objects/companies/search', body=body)
+        if not isinstance(page.get('results'), list) or int(page.get('total', 0)) >= 10000:
+            raise ValueError('Invalid or oversized search response')
         records.extend(page['results'])
         after = page.get('paging', {}).get('next', {}).get('after')
         if after is None:
+            if 'total' not in page or len(records) != int(page['total']):
+                raise ValueError('Incomplete search response')
             break
-        if str(after) in seen:
-            raise ValueError('Repeated pagination cursor')
-        seen.add(str(after))
-    rows = export_rows(records, config, audience=args.audience)
-    details = export_details(fetch_partner_details(rows, fields), rows, fields)
-    # Empty snapshots are valid: revoked publication must remove old partners too.
-    buffer = io.StringIO(newline='')
-    writer = csv.writer(buffer)
-    writer.writerow(HEADER)
-    writer.writerows(rows)
-    missing = sum(not r[8] for r in rows)
-    status = {'schemaVersion': 1, 'source': 'HubSpot',
-              'exportedAt': datetime.now(timezone.utc).isoformat(),
-              'partners': len(rows), 'missingCoordinates': missing,
-              'mappedDetailFields': sorted(fields),
-              'missingDetailFields': sorted(set(DETAIL_FIELDS) - set(fields))}
-    status['filledDetailFields'] = {field: sum(bool(p.get(field)) for p in details['partners'])
-                                   for field in list(DETAIL_FIELDS) + ['partnerType']}
-    outputs = {'daten.csv': buffer.getvalue(),
-               'standorte.json': json.dumps(details, ensure_ascii=False),
-               'export_status.json': json.dumps(status, ensure_ascii=False)}
-    # Prepare all files before replacement; the workflow publishes one commit.
-    for name, content in outputs.items():
-        Path(name + '.new').write_text(content, encoding='utf-8')
-    for name in outputs:
-        Path(name + '.new').replace(Path(name))
-    print('Mapped directory fields:', ', '.join(sorted(fields)))
-    print('Unavailable directory fields:', ', '.join(status['missingDetailFields']))
-    print('HubSpot partners (' + args.audience + '):', len(rows), '| Missing HubSpot coordinates:', missing)
-    print('Only business directory fields exported. No individual records logged.')
+        if str(after) in cursors or len(cursors) >= 99:
+            raise ValueError('Invalid search pagination')
+        cursors.add(str(after))
+    for record in records:
+        p = record.get('properties', {})
+        if p.get(active) != active_value or p.get(lifecycle) not in networks:
+            raise ValueError('Search filter mismatch')
+    return records, config, fields
 
+
+def main():
+    if not os.environ.get('HUBSPOT_TOKEN'):
+        raise SystemExit('HUBSPOT_TOKEN secret missing in Bedarfskarte-Franchise-AT')
+    properties = api('/crm/v3/properties/companies')['results']
+    records, config, fields = fetch_active(properties)
+    rows = export_rows(records, config, 'internal')
+    details = export_details(records, rows, fields)
+    details.update(audience='internal', selection='active')
+    buf = io.StringIO(newline=''); writer = csv.writer(buf); writer.writerow(HEADER); writer.writerows(rows)
+    status = {'schemaVersion':1, 'source':'HubSpot', 'audience':'internal', 'selection':'active',
+              'exportedAt':datetime.now(timezone.utc).isoformat(), 'partners':len(rows),
+              'missingCoordinates':sum(not r[8] for r in rows)}
+    outputs = {'daten.csv':buf.getvalue(), 'standorte.json':json.dumps(details,ensure_ascii=False),
+               'export_status.json':json.dumps(status,ensure_ascii=False)}
+    for name, content in outputs.items():
+        Path(name+'.new').write_text(content,encoding='utf-8')
+    for name in outputs: Path(name+'.new').replace(name)
+    print('Active partners including Non Public:',len(rows),'| Missing coordinates:',status['missingCoordinates'])
 
 if __name__ == '__main__':
-    main()
+    try: main()
+    except (ValueError, RuntimeError) as exc: raise SystemExit(str(exc)) from None
+    except Exception: raise SystemExit('Sync failed; previous snapshot unchanged; no raw CRM data logged.') from None

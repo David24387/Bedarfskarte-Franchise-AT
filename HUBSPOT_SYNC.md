@@ -1,24 +1,20 @@
-# AT-Bedarfskarte: alle aktiven Partner
+# Bedarfskarte AT: alle aktiven Partner, auch Non Public
 
-Quelle: David24387/hubspot-standort-export-private, Workflow export.yml.
-HubSpot-Filter: kundenstatus = Aktiv UND Lifecycle FRP, FRPL, EFR oder PLP.
-Public_Status ist für diese Karte keine Aufnahmebedingung. Auch aktive Non-Public-Partner sind enthalten.
-Die Karte und ihre Standortdaten bleiben nach ausdrücklicher Freigabe öffentlich.
+Der Workflow sync-centers.yml nutzt den vorhandenen HUBSPOT_TOKEN dieses Repositorys.
+Die HubSpot-Unternehmenssuche filtert vor dem Abruf auf kundenstatus = Aktiv UND
+Lifecycle FRP/FRPL/EFR/PLP. Public_Status ist für die Bedarfskarte keine Aufnahmebedingung.
+Die bisherige Public-only-Sperre wurde auch im eigentlichen Exportskript entfernt.
+Andere Unternehmensdaten, Kontakte und Deals werden nicht abgefragt.
 
-Der zentrale Export erzeugt zwei getrennte Bestände:
-- data/internal → Bedarfskarte-Franchise-AT: alle aktiven Partner, einschließlich Non Public.
-- data/public → euromaster-at-partnerverzeichnis: nur aktive Public-Partner, reduzierte Standortfelder.
+Vollständiger Snapshot stündlich zur Minute 17 und bei manueller Ausführung.
+Inaktive, archivierte und aus dem Netzwerk ausgeschiedene Partner werden entfernt.
+Auch ein leerer Bestand ersetzt die alten Daten; API- oder Mappingfehler dagegen nicht.
 
-Nur das private Quell-Repository benötigt HUBSPOT_TOKEN und MAP_PUBLISH_TOKEN.
-MAP_PUBLISH_TOKEN: fine-grained GitHub-Token, ausschließlich die beiden Karten-Repositories,
-Contents: Read and write. Keine Workflow- oder Verwaltungsberechtigungen erforderlich.
-Der Publisher schreibt ausschließlich daten.csv, standorte.json und export_status.json.
+ORS_API_KEY bleibt hier als Secret. Nach Standortänderungen werden fehlende Fahrzeitflächen
+schrittweise ergänzt. Neue Standorte sind sofort sichtbar; die Bedarfsanalyse bleibt bis
+zur vollständigen Flächenberechnung vorübergehend unvollständig.
 
-Stündlicher Export zur Minute 17 und manuell per Run workflow. Jeder Lauf ersetzt den vollständigen Bestand.
-Inaktive, archivierte oder aus dem Netzwerk ausgeschiedene Standorte werden entfernt.
-API-, Mapping- und Validierungsfehler veröffentlichen keinen unvollständigen Datenbestand.
-
-ORS_API_KEY bleibt ausschließlich als Actions-Secret in dieser Bedarfskarte.
-Der Fahrzeit-Workflow reagiert auf daten.csv-Änderungen und ergänzt die 30-Minuten-Flächen.
-Bis zur erfolgreichen ORS-Berechnung neuer Standorte ist die Bedarfsanalyse dort unvollständig.
-Die externe Verzeichniskarte verwendet keine Fahrzeit-, Regional- oder Bedarfsdaten.
+Die öffentliche Verzeichniskarte euromaster-at-partnerverzeichnis erhält weiterhin ausschließlich
+Public + Aktiv und keine Bedarfsermittlung oder internen Firmenfelder.
+Der private zentrale Export ist ebenfalls vorbereitet, aber ohne hinterlegten HUBSPOT_TOKEN
+und MAP_PUBLISH_TOKEN nicht produktiv. Der direkte Bedarfskarten-Sync funktioniert davon unabhängig.
