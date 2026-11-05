@@ -2,7 +2,7 @@ name: Mobile map interactions
 on:
   push:
     branches: [main]
-    paths: ['index.html', 'app.js', 'directory.js', 'tests/mobile-smoke.cjs', '.github/workflows/mobile-check.yml']
+    paths: ['index.html', 'app.js', 'directory.js', 'search.js', 'tests/mobile-smoke.cjs', '.github/workflows/mobile-check.yml']
   workflow_dispatch:
 permissions:
   contents: read

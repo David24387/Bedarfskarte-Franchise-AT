@@ -1,9 +1,9 @@
 name: Synthetic directory tests
 on:
   push:
-    paths: ['index.html', 'directory.js', 'tests/**', '.github/workflows/directory-tests.yml']
+    paths: ['index.html', 'directory.js', 'search.js', 'tests/**', '.github/workflows/directory-tests.yml']
   pull_request:
-    paths: ['index.html', 'directory.js', 'tests/**', '.github/workflows/directory-tests.yml']
+    paths: ['index.html', 'directory.js', 'search.js', 'tests/**', '.github/workflows/directory-tests.yml']
 permissions:
   contents: read
 jobs:
@@ -16,4 +16,4 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node --test tests/directory.test.cjs tests/integration.test.cjs
+      - run: node --test tests/directory.test.cjs tests/integration.test.cjs tests/search.test.cjs

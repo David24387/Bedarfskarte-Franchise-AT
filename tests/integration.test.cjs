@@ -1,11 +1,11 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
-const D=require('../directory.js');
+const D=require('../directory.js'),S=require('../search.js');
 const elements=new Map();
 function element(id){if(!elements.has(id))elements.set(id,{checked:true,value:'',options:[],selectedOptions:[],add(o){this.options.push(o)},addEventListener(){},textContent:'',innerHTML:''});return elements.get(id)}
 let layers=new Set(),popup='';
 const map={removeLayer(x){layers.delete(x)},hasLayer(x){return layers.has(x)}};
 const layer=()=>({addTo(){layers.add(this);return this},bindTooltip(){return this},on(){return this}});
-const context={PartnerDirectory:D,document:{getElementById:element},Option:function(text,value){this.text=text;this.value=value},L:{GridLayer:{extend(){return class {addTo(){return this}}}},circleMarker:layer,popup(){return {setLatLng(){return this},setContent(v){popup=v;return this},openOn(){return this}}}},turf:{point:x=>x,booleanPointInPolygon:()=>true},console,performance,setTimeout};
+const context={PartnerDirectory:D,PartnerSearch:S,document:{getElementById:element},Option:function(text,value){this.text=text;this.value=value},L:{GridLayer:{extend(){return class {addTo(){return this}}}},circleMarker:layer,popup(){return {setLatLng(){return this},setContent(v){popup=v;return this},openOn(){return this}}}},turf:{point:x=>x,booleanPointInPolygon:()=>true,booleanIntersects:()=>true},console,performance,setTimeout};
 vm.createContext(context);
 let source=fs.readFileSync(require('node:path').join(__dirname,'../index.html'),'utf8').split('<script>').at(-1).split('</script>')[0];
 source=source.replace(/init\(\);\s*$/,'');vm.runInContext(source,context);
@@ -26,3 +26,17 @@ assert.match(element('directoryList').innerHTML,/Keine passenden/);
 vm.runInContext("parse([['KST','Netzwerk','Lat./Breitengard','Long./Längengrad']])",context);
 assert.equal(vm.runInContext('directoryRows.length+iso.length',context),0);
 console.log('Synthetic map integration passed: profiles, missing coordinates, stale removal, service coverage, escaping, empty replacement.');
+
+element('serviceFilter').selectedOptions=[];element('hotspots').checked=false;
+vm.runInContext(`partnerDetails=new Map();iso=[{type:'Feature',properties:{lat:48,lng:15,network:'FRANCHISE',minutes:30},geometry:{type:'Polygon',coordinates:[]}}];regional=[{name:'Gesuchter Nachbarort',geometry:{type:'Polygon',coordinates:[]}}];parse([['KST','Netzwerk','Status','Gesellschaft','Ort','Lat./Breitengard','Long./Längengrad'],['DEMO-3','FRANCHISE','geöffnet','Betrieb im Nachbarort','Anderer Betriebsort','48','15']]);`,context);
+element('search').value='Gesuchter Nachbarort';vm.runInContext('filter()',context);
+assert.match(element('directoryList').innerHTML,/Betrieb im Nachbarort/);
+assert.equal(layers.size,1,'Covering marker must remain on the map');
+assert.match(element('searchHint').textContent,/30-Minuten-Gebiet/);
+element('franchiseToggle').checked=false;vm.runInContext('filter()',context);
+assert.equal(layers.size,0,'Network exclusion still wins over geographic search');
+element('franchiseToggle').checked=true;element('serviceFilter').selectedOptions=[{value:'Nicht angeboten'}];vm.runInContext('directoryChange()',context);
+assert.equal(layers.size,0,'Service exclusion still wins over geographic search');
+element('serviceFilter').selectedOptions=[];element('search').value='unbekannter ort';vm.runInContext('filter()',context);
+assert.equal(layers.size,0,'Unknown place must not reveal unrelated centers');
+console.log('Place search integration passed: neighbor marker/list retained, filters respected, unknown place excluded.');

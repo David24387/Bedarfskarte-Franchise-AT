@@ -17,3 +17,13 @@ Die Liste und Profile werden anhand der Unternehmens-ID verknüpft. Fehlende Koo
 `node --test tests/directory.test.cjs tests/integration.test.cjs`
 
 Alle Tests verwenden künstliche Daten. Der echte Export benötigt das Secret und läuft ausschließlich in GitHub Actions. `export_status.json` meldet Zeitpunkt, Mengen, Koordinatenlücken und Feldzuordnung sowie Befüllungszahlen ohne CRM-Einzelwerte.
+
+## Ortssuche und Fahrzeitabdeckung
+
+Die Suchzeile findet weiterhin direkte Treffer in Ort, PLZ, Firma, Straße, Netzkennung und KST. Bei Gemeindenamen werden zusätzlich die vorhandenen Gemeindegrenzen aus regionaldaten.json mit den gespeicherten 30-Minuten-Isochronen geschnitten. Ein Betrieb bleibt in Liste und Karte sichtbar, wenn seine Fahrzeitfläche die gesuchte Gemeinde erreicht, auch wenn der Betrieb in einem anderen Ort liegt. Das ist eine Gemeindeflächen-Abfrage; sie behauptet keine exakte Fahrzeit für jede Adresse innerhalb der Gemeinde. Die Flächen werden nicht durch Luftlinienradien ersetzt.
+
+Netzwerk-, Bundesland- und Leistungsfilter sowie der Schalter für Standortpunkte bleiben maßgeblich. Die Bedarfsberechnung selbst wird durch den Suchtext nicht verändert. Abdeckung und Betrieb werden über Koordinaten und Netzwerk verknüpft. Standort-/Isochronenänderungen verwerfen den Suchcache. Ungültige Geometrien erzeugen keinen Treffer. Bei identischen Ortsnamen wird ein exakter Gemeindename gegenüber Teiltreffern bevorzugt. Ohne passende Gemeinde bleiben reine Texttreffer möglich.
+
+Regression: Bei Jennersdorf erreicht die gespeicherte Fläche von Nestelbach im Ilztal die Gemeinde. Der Betrieb darf durch die fehlende Zeichenfolge „Jennersdorf“ in seiner eigenen Adresse nicht verschwinden. Dieser Fall wurde mit den realen GeoJSON-Daten und derselben Turf-Version wie in der Karte nachgerechnet. Synthetische Tests prüfen Nachbargemeinde, entfernte Fläche, Grenzberührung, Netzwerk-/Dienstleistungsfilter und unveränderte Firmen-/KST-Suche. Mobile-Smoke-Test enthält zusätzlich die Jennersdorf-Suche.
+
+Prüfung: node --test tests/directory.test.cjs tests/integration.test.cjs tests/search.test.cjs
